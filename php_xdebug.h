@@ -250,6 +250,7 @@ ZEND_BEGIN_MODULE_GLOBALS(xdebug)
 	char         *profiler_output_name; /* "pid" or "crc32" */
 	zend_bool     profiler_enable_trigger;
 	zend_bool     profiler_append;
+	int           profiler_start_level;
 
 	/* profiler globals */
 	zend_bool     profiler_enabled;

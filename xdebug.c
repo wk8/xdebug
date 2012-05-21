@@ -114,6 +114,7 @@ zend_function_entry xdebug_functions[] = {
 	PHP_FE(xdebug_stop_trace,            NULL)
 	PHP_FE(xdebug_get_tracefile_name,    NULL)
 
+	PHP_FE(xdebug_profiler_start,        NULL)
 	PHP_FE(xdebug_get_profiler_filename, NULL)
 	PHP_FE(xdebug_dump_aggr_profiling_data, NULL)
 	PHP_FE(xdebug_clear_aggr_profiling_data, NULL)
@@ -1324,6 +1325,7 @@ void xdebug_execute(zend_op_array *op_array TSRMLS_DC)
 		) {
 			if (xdebug_profiler_init((char *) op_array->filename TSRMLS_CC) == SUCCESS) {
 				XG(profiler_enabled) = 1;
+				XG(profiler_start_level) = 0;
 			}
 		}
 	}
@@ -1391,7 +1393,13 @@ void xdebug_execute(zend_op_array *op_array TSRMLS_DC)
 	xdebug_old_execute(op_array TSRMLS_CC);
 
 	if (XG(profiler_enabled)) {
-		xdebug_profiler_function_user_end(fse, op_array TSRMLS_CC);
+		printf("CHECK: FSE: %d SL: %d\n", fse->level, XG(profiler_start_level));
+		if (fse->level == XG(profiler_start_level)) {
+			xdebug_profiler_deinit(TSRMLS_C);
+			XG(profiler_enabled) = 0;
+		} else {
+			xdebug_profiler_function_user_end(fse, op_array TSRMLS_CC);
+		}
 	}
 
 	xdebug_trace_function_end(fse, function_nr TSRMLS_CC);
@@ -1484,7 +1492,13 @@ void xdebug_execute_internal(zend_execute_data *current_execute_data, int return
 	}
 
 	if (XG(profiler_enabled)) {
-		xdebug_profiler_function_internal_end(fse TSRMLS_CC);
+		printf("CHECK: FSE: %d SL: %d\n", fse->level, XG(profiler_start_level));
+		if (fse->level == XG(profiler_start_level)) {
+			xdebug_profiler_deinit(TSRMLS_C);
+			XG(profiler_enabled) = 0;
+		} else {
+			xdebug_profiler_function_internal_end(fse TSRMLS_CC);
+		}
 	}
 
 	/* Restore SOAP situation if needed */

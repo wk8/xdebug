@@ -96,6 +96,9 @@ void xdebug_profiler_deinit(TSRMLS_D)
 
 	for (le = XDEBUG_LLIST_TAIL(XG(stack)); le != NULL; le = XDEBUG_LLIST_PREV(le)) {
 		fse = XDEBUG_LLIST_VALP(le);
+		if (fse->level < XG(profiler_start_level)) {
+			continue;
+		}
 		if (fse->user_defined == XDEBUG_INTERNAL) {
 			xdebug_profiler_function_internal_end(fse TSRMLS_CC);
 		} else {
@@ -125,6 +128,7 @@ void xdebug_profiler_function_user_begin(function_stack_entry *fse TSRMLS_DC)
 {
 	fse->profile.time = 0;
 	fse->profile.mark = xdebug_get_utime();
+	printf("\tU ENTER FOR L %d (%s)\n", fse->level, fse->function.function);
 }
 
 
@@ -231,17 +235,20 @@ void xdebug_profiler_function_user_end(function_stack_entry *fse, zend_op_array*
 	}
 	fprintf(XG(profile_file), "\n");
 	fflush(XG(profile_file));
+	printf("\tU EXIT  FOR L %d (%s)\n", fse->level, fse->function.function);
 }
 
 
 void xdebug_profiler_function_internal_begin(function_stack_entry *fse TSRMLS_DC)
 {
+	printf("I");
 	xdebug_profiler_function_user_begin(fse TSRMLS_CC);
 }
 
 
 void xdebug_profiler_function_internal_end(function_stack_entry *fse TSRMLS_DC)
 {
+	printf("I");
 	xdebug_profiler_function_user_end(fse, NULL TSRMLS_CC);
 }
 
@@ -299,4 +306,29 @@ int xdebug_profiler_output_aggr_data(const char *prefix TSRMLS_DC)
 	fclose(aggr_file);
 	fprintf(stderr, "wrote info for %d entries to %s\n", zend_hash_num_elements(&XG(aggr_calls)), filename);
 	return SUCCESS;
+}
+
+PHP_FUNCTION(xdebug_profiler_start)
+{
+	function_stack_entry *fse;
+	xdebug_llist_element *le;
+
+	if (XG(profiler_enabled)) {
+		RETURN_FALSE;
+	}
+
+	xdebug_profiler_init("TESTING" TSRMLS_CC);
+
+	le = XDEBUG_LLIST_TAIL(XG(stack));
+	fse = XDEBUG_LLIST_VALP(le);
+
+	XG(profiler_enabled) = 1;
+	XG(profiler_start_level) = fse->level - 1;
+
+printf("START LEVEL %d\n", fse->level);
+
+	xdebug_profiler_function_user_begin(fse);
+	if (fse->prev) {
+		xdebug_profiler_function_user_begin(fse->prev);
+	}
 }

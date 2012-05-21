@@ -36,4 +36,6 @@ void xdebug_profiler_function_internal_end(function_stack_entry *fse TSRMLS_DC);
 void xdebug_profile_call_entry_dtor(void *dummy, void *elem);
 void xdebug_profile_aggr_call_entry_dtor(void *elem);
 
+PHP_FUNCTION(xdebug_profiler_start);
+
 #endif
