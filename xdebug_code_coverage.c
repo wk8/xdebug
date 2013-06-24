@@ -767,9 +767,9 @@ PHP_FUNCTION(xdebug_get_code_coverage)
 		xdebug_hash_apply(XG(cc_func_only), (void*) return_value, add_file_func_only);
 	} else if (XG(do_code_coverage)) {
 		xdebug_hash_apply(XG(code_coverage), (void *) return_value, add_file);
+	} else {
+	    RETURN_FALSE;
 	}
-
-	RETURN_FALSE;
 }
 
 PHP_FUNCTION(xdebug_get_function_count)
