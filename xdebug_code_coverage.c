@@ -645,12 +645,14 @@ PHP_FUNCTION(xdebug_start_code_coverage)
 {
 	long options = 0;
 
+
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|l", &options) == FAILURE) {
 		return;
 	}
 	XG(code_coverage_unused) = (options & XDEBUG_CC_OPTION_UNUSED);
 	XG(code_coverage_dead_code_analysis) = (options & XDEBUG_CC_OPTION_DEAD_CODE);
 	XG(code_coverage_func_only) = (options & XDEBUG_CC_OPTION_FUNC_ONLY);
+	XG(code_coverage_zomphp) = (options & XDEBUG_CC_OPTION_ZOMPHP);
 
 	if (!XG(extended_info)) {
 		php_error(E_WARNING, "You can only use code coverage when you leave the setting of 'xdebug.extended_info' to the default '1'.");
@@ -658,7 +660,7 @@ PHP_FUNCTION(xdebug_start_code_coverage)
 	} else if (!XG(code_coverage)) {
 		php_error(E_WARNING, "Code coverage needs to be enabled in php.ini by setting 'xdebug.coverage_enable' to '1'.");
 		RETURN_FALSE;
-	} else if (!XG(code_coverage_func_only)) {
+	} else if (!XG(code_coverage_func_only) && !XG(code_coverage_zomphp)) {
 		XG(do_code_coverage) = 1;
 		RETURN_TRUE;
 	}
@@ -763,9 +765,11 @@ PHP_FUNCTION(xdebug_get_code_coverage)
 
 	if (XG(code_coverage_func_only)) {
 		xdebug_hash_apply(XG(cc_func_only), (void*) return_value, add_file_func_only);
-	} else {
+	} else if (XG(do_code_coverage)) {
 		xdebug_hash_apply(XG(code_coverage), (void *) return_value, add_file);
 	}
+
+	RETURN_FALSE;
 }
 
 PHP_FUNCTION(xdebug_get_function_count)
