@@ -645,10 +645,10 @@ PHP_FUNCTION(xdebug_start_code_coverage)
 {
 	long options = 0;
 
-
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|l", &options) == FAILURE) {
 		return;
 	}
+
 	XG(code_coverage_unused) = (options & XDEBUG_CC_OPTION_UNUSED);
 	XG(code_coverage_dead_code_analysis) = (options & XDEBUG_CC_OPTION_DEAD_CODE);
 	XG(code_coverage_func_only) = (options & XDEBUG_CC_OPTION_FUNC_ONLY);
