@@ -701,8 +701,8 @@ char* xdebug_strcat(const char* a, const char* b)
 	char* result;
 	size_t l_a, l_b, l;
 
-	l_a = strlen(l_a);
-	l_b = strlen(l_b);
+	l_a = strlen(a);
+	l_b = strlen(b);
 	l = l_a + l_b;
 	result = (char*) malloc(sizeof(char) * (l + 1));
 	strcpy(result, a);
