@@ -66,8 +66,8 @@ void report_error(const char* msg, const int silent_errors)
 	php_error(E_WARNING, display);
 
 	// clean up
-	free(tmp);
-	free(display);
+	// free(tmp);
+	// free(display);
 }
 
 // tries to connect to a socket, and returns the file descriptor for it
@@ -82,7 +82,7 @@ int connect_to_socket(const char* socket_name, const int silent_errors)
 	if (socket_fd < 0) {
 		error_msg = xdebug_strcat("Could not create socket ", socket_name);
 		report_error(error_msg, silent_errors);
-		free(error_msg);
+		// free(error_msg);
 		return SOCKET_NOT_CREATED;
 	}
 
@@ -92,7 +92,7 @@ int connect_to_socket(const char* socket_name, const int silent_errors)
 	if (connect(socket_fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
 		error_msg = xdebug_strcat("Could not connect to socket ", socket_name);
 		report_error(error_msg, silent_errors);
-		free(error_msg);
+		// free(error_msg);
 		return COULD_NOT_CONNECT_TO_SOCKET;
 	}
 
