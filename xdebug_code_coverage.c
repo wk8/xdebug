@@ -23,6 +23,7 @@
 #include "xdebug_code_coverage.h"
 #include "xdebug_compat.h"
 #include "xdebug_tracing.h"
+#include "xdebug_socket.h"
 
 extern ZEND_DECLARE_MODULE_GLOBALS(xdebug);
 
@@ -400,6 +401,14 @@ void xdebug_log_function_call(char *filename, char* funcname)
 	func->count++;
 }
 
+void xdebug_log_function_call_zomphp(char *filename, char* funcname)
+{
+
+	if (filename == NULL || funcname == NULL) {
+		return;
+	}
+}
+
 static void prefill_from_opcode(char *fn, zend_op opcode, int deadcode TSRMLS_DC)
 {
 	if (
@@ -774,5 +783,6 @@ PHP_FUNCTION(xdebug_get_code_coverage)
 
 PHP_FUNCTION(xdebug_get_function_count)
 {
+	RETURN_STRING(get_socket(), 1);
 	RETURN_LONG(XG(function_count));
 }

@@ -1129,7 +1129,7 @@ function_stack_entry *xdebug_add_stack_frame(zend_execute_data *zdata, zend_op_a
 	} else if (XG(code_coverage_func_only)) {
 		xdebug_log_function_call(op_array->filename ? op_array->filename : NULL, op_array->function_name ? op_array->function_name : NULL);
 	} else if (XG(code_coverage_zomphp)) {
-	    // TODO wkpo
+		xdebug_log_function_call_zomphp(op_array->filename ? op_array->filename : NULL, op_array->function_name ? op_array->function_name : NULL);
 	}
 
 	if (XG(profiler_aggregate)) {

@@ -181,6 +181,8 @@ Tue, May 08, 2012 - xdebug 2.2.0
    <file name="xdebug_var.h" role="src" />
    <file name="xdebug_xml.c" role="src" />
    <file name="xdebug_xml.h" role="src" />
+   <file name="xdebug_socket.c" role="src" />
+   <file name="xdebug_socket.h" role="src" />
   </dir> <!-- / -->
  </contents>
  <dependencies>
