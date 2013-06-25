@@ -63,6 +63,7 @@ FILE *xdebug_fopen(char *fname, char *mode, char *extension, char **new_fname);
 int xdebug_format_output_filename(char **filename, char *format, char *script_name);
 void xdebug_open_log(TSRMLS_D);
 void xdebug_close_log(TSRMLS_D);
+char* xdebug_strcat(const char* a, const char* b);
 
 #define XDEBUG_CRC32(crc, ch)	 (crc = (crc >> 8) ^ xdebug_crc32tab[(crc ^ (ch)) & 0xff])
 

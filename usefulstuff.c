@@ -694,3 +694,19 @@ void xdebug_close_log(TSRMLS_D)
 		XG(remote_log_file) = NULL;
 	}
 }
+
+// same as strcat, except the buffer is dynamically created (needs to be freed afterwards!)
+char* xdebug_strcat(const char* a, const char* b)
+{
+	char* result;
+	size_t l_a, l_b, l;
+
+	l_a = strlen(l_a);
+	l_b = strlen(l_b);
+	l = l_a + l_b;
+	result = (char*) malloc(sizeof(char) * (l + 1));
+	strcpy(result, a);
+	strcpy(result + l_a, b);
+
+	return result;
+}
