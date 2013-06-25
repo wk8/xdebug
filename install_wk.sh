@@ -1,6 +1,6 @@
 phpize || exit $?
 aclocal || exit $?
-libtoolize --force|| exit $?
+libtoolize --force || exit $?
 autoheader || exit $?
 autoconf || exit $?
 ./configure || exit $?
