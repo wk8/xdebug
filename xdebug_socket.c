@@ -65,12 +65,6 @@ char* get_socket_name()
 	return SOCKET_PATH_PREFIX;
 }
 
-// asks ZomPHP's deamon to create a socket for this process
-void ask_for_socket_creation(xdebug_socket_error* error)
-{
-	// TODO wkpo
-}
-
 void report_error(const char* msg, const char* socket_name, xdebug_socket_error* error, const int silent_errors)
 {
 	if (silent_errors & errno || !error) {
@@ -78,8 +72,17 @@ void report_error(const char* msg, const char* socket_name, xdebug_socket_error*
 		return;
 	}
 
-	xdebug_strcat(error->error_msg, MAX_ERROR_MSG_LENGTH, 4, msg, socket_name, " : ", strerror(errno));
+	xdebug_strcat(error->error_msg, MAX_ERROR_MSG_LENGTH, 5, "ZomPHP Error: ", msg, socket_name, " : ", strerror(errno));
 	error->has_error = 1;
+
+	// reset errno
+	errno = 0;
+}
+
+// asks ZomPHP's deamon to create a socket for this process
+void ask_for_socket_creation(xdebug_socket_error* error)
+{
+	// TODO wkpo
 }
 
 // tries to connect to a socket, and returns the file descriptor for it
@@ -126,4 +129,24 @@ int get_socket(int ht, xdebug_socket_error* error)
 	}
 
 	return socket_fd;
+}
+
+// returns < 0 if any error
+size_t write_string_to_socket(int socket_fd, const char* str, xdebug_socket_error* error)
+{
+	size_t result, str_length;
+	str_length = strlen(str);
+
+	if (socket_fd < 0 || !str_length) {
+		return -1;
+	}
+
+	result = write(socket_fd, str, str_length);
+
+	if (result < str_length) {
+		report_error("Could not send data to socket ", "", error, 0);
+		return -1;
+	}
+
+	return result;
 }
