@@ -14,7 +14,6 @@
 #include "SAPI.h"
 
 #include "xdebug_socket.h"
-#include "usefulstuff.h"
 
 #define CLI "cli"
 #define SOCKET_PATH_PREFIX "/tmp/socketname" // TODO wkpo
@@ -25,10 +24,10 @@
 xdebug_socket_error* new_socket_error()
 {
 	xdebug_socket_error* result;
-	char* error_msg;
+	xdebug_extensible_string* error_msg;
 
 	result = (xdebug_socket_error*) malloc(sizeof(xdebug_socket_error));
-	error_msg = (char*) malloc(sizeof(char) * MAX_ERROR_MSG_LENGTH);
+	error_msg = new_xdebug_extensible_string();
 
 	if (!result || !error_msg) {
 		if (result) {
@@ -45,14 +44,14 @@ xdebug_socket_error* new_socket_error()
 void free_socket_error(xdebug_socket_error* e)
 {
 	if (e) {
-		free(e->error_msg);
+		free_xdebug_extensible_string(e->error_msg);
 		free(e);
 	}
 }
 
 // returns 0 iff we don't want to use ZomPHP for this SAPI
 // current policy : allow ZomPHP for any other SAPI than CLI
-int is_relevant_sapi(int ht)
+int is_relevant_sapi()
 {
 	if (!sapi_module.name) {
 		// don't know what the current SAPI is, better not do anything
@@ -75,7 +74,7 @@ void report_error(const char* msg, const char* socket_name, xdebug_socket_error*
 		return;
 	}
 
-	xdebug_strcat(error->error_msg, MAX_ERROR_MSG_LENGTH, 5, "ZomPHP Error: ", msg, socket_name, " : ", strerror(errno));
+	xdebug_extensible_strcat(error->error_msg, 5, "ZomPHP Error: ", msg, socket_name, " : ", strerror(errno));
 	error->has_error = 1;
 
 	// reset errno
@@ -115,11 +114,11 @@ int connect_to_socket(const char* socket_name, const int silent_error, xdebug_so
 // returns the file descriptor for the current process's socket, after having connected
 // will ask for the socket's creation if it wasn't found // TODO wkpo
 // if the result is < 0, means that some kind of error occurred
-int get_socket(int ht, xdebug_socket_error* error)
+int get_socket(xdebug_socket_error* error)
 {
 	int socket_fd;
 
-	if (!is_relevant_sapi(ht)) {
+	if (!is_relevant_sapi()) {
 		return -1;
 	}
 

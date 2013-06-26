@@ -85,7 +85,7 @@ XDEBUG_OPCODE_OVERRIDE_ASSIGN_DECL(assign_dim);
 XDEBUG_OPCODE_OVERRIDE_ASSIGN_DECL(assign_obj);
 
 void xdebug_count_line(char *file, int lineno, int executable, int deadcode TSRMLS_DC);
-void xdebug_log_function_call(char *file, char* funcname);
+void xdebug_log_function_call(char *file, char* funcname, int lineno);
 void xdebug_prefill_code_coverage(zend_op_array *op_array TSRMLS_DC);
 
 PHP_FUNCTION(xdebug_start_code_coverage);

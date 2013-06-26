@@ -33,6 +33,7 @@
 #include "xdebug_hash.h"
 #include "xdebug_llist.h"
 #include "xdebug_code_coverage.h"
+// #include "usefulstuff.h" // TODO wkpo necessaire??
 
 extern zend_module_entry xdebug_module_entry;
 #define phpext_xdebug_ptr &xdebug_module_entry
@@ -207,6 +208,7 @@ ZEND_BEGIN_MODULE_GLOBALS(xdebug)
 	xdebug_cc_func_only_func *previous_func;
 	xdebug_cc_func_only_file *previous_file_func_only;
 	int                       zomphp_socket_fd;
+	// xdebug_extensible_string *extensible_buffer;
 
 	/* used for collection errors */
 	zend_bool     do_collect_errors;

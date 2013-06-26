@@ -21,6 +21,7 @@
 
 #define FD_RL_FILE    0
 #define FD_RL_SOCKET  1
+#define XDEBUG_EXTENSIBLE_STRING_DELTA_INCR 100
 
 typedef struct _fd_buf fd_buf;
 
@@ -33,6 +34,11 @@ typedef struct xdebug_arg {
 	int    c;
 	char **args;
 } xdebug_arg;
+
+typedef struct xdebug_extensible_string {
+	size_t current_length;
+	char*  data;
+} xdebug_extensible_string;
 
 #define xdebug_arg_init(arg) {    \
 	arg->args = NULL;             \
@@ -63,7 +69,10 @@ FILE *xdebug_fopen(char *fname, char *mode, char *extension, char **new_fname);
 int xdebug_format_output_filename(char **filename, char *format, char *script_name);
 void xdebug_open_log(TSRMLS_D);
 void xdebug_close_log(TSRMLS_D);
-char* xdebug_strcat(char* dest, const size_t max_length, const int nb_strings, ...);
+
+xdebug_extensible_string* new_xdebug_extensible_string();
+void free_xdebug_extensible_string(xdebug_extensible_string* ext_string);
+xdebug_extensible_string* xdebug_extensible_strcat(xdebug_extensible_string* ext_string, const int nb_strings, ...);
 
 #define XDEBUG_CRC32(crc, ch)	 (crc = (crc >> 8) ^ xdebug_crc32tab[(crc ^ (ch)) & 0xff])
 

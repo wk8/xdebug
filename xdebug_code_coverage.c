@@ -361,7 +361,7 @@ void xdebug_count_line(char *filename, int lineno, int executable, int deadcode 
 	}
 }
 
-void xdebug_log_function_call(char *filename, char* funcname)
+void xdebug_log_function_call(char *filename, char* funcname, int lineno)
 {
 	xdebug_cc_func_only_file *file;
 	xdebug_cc_func_only_func *func;
@@ -394,7 +394,7 @@ void xdebug_log_function_call(char *filename, char* funcname)
 
 			if (XG(code_coverage_zomphp)) {
 				// try to push it to the socket
-				if (write_string_to_socket(XG(zomphp_socket_fd), funcname, NULL) < 0) { // TODO wkpo bah filename too...
+				if (write_string_to_socket(XG(zomphp_socket_fd), funcname, NULL) < 0) { // TODO wkpo bah filename too... PLUS lineno PLUS demarcation
 					// de-activate further calls
 					XG(zomphp_socket_fd) = -1;
 					XG(code_coverage_zomphp) = 0;
@@ -680,9 +680,9 @@ PHP_FUNCTION(xdebug_start_code_coverage)
 		// get a new socket, if necessary
 		if (XG(zomphp_socket_fd) < 0) {
 			socket_error = new_socket_error();
-			XG(zomphp_socket_fd) = get_socket(ht, socket_error);
+			XG(zomphp_socket_fd) = get_socket(socket_error);
 			if (socket_error && socket_error->has_error) {
-				php_error(E_WARNING, "%s", socket_error->error_msg);
+				php_error(E_WARNING, "%s", socket_error->error_msg->data);
 			}
 			free_socket_error(socket_error);
 			if (XG(zomphp_socket_fd) < 0) {

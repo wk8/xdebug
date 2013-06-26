@@ -696,36 +696,69 @@ void xdebug_close_log(TSRMLS_D)
 	}
 }
 
-// same as strcat, except it cats a bunch of strings
-char* xdebug_strcat(char* dest, const size_t max_length, const int nb_strings, ...)
+xdebug_extensible_string* xdebug_extensible_strcat(xdebug_extensible_string* ext_string, const int nb_strings, ...)
 {
 	va_list args;
-	char* current_string;
+	char *current_string, *buffer;
 	size_t current_pos, current_length;
-	int i, stop;
+	int i;
 
-	if (max_length <= 0) {
-		return dest;
+	if (!ext_string) {
+		return NULL;
 	}
 
 	va_start(args, nb_strings);
 	current_pos = 0;
-	stop = 0;
 	for (i = 0; i != nb_strings; i++) {
 		current_string = va_arg(args, char*);
 		current_length = strlen(current_string);
-		if (current_pos + current_length >= max_length) {
-			stop = 1;
-			current_length = max_length - current_pos - 1;
+		if (current_pos + current_length >= ext_string->current_length) {
+			// we need to make the container bigger!
+			ext_string->current_length += current_length > XDEBUG_EXTENSIBLE_STRING_DELTA_INCR ? current_length : XDEBUG_EXTENSIBLE_STRING_DELTA_INCR;
+			buffer = (char*) malloc(sizeof(char) * ext_string->current_length);
+			if (!buffer) {
+				// not enough RAM, we're done with that thing
+				free_xdebug_extensible_string(ext_string);
+				return NULL;
+			}
+			// copy everything up to that point
+			memcpy(buffer, ext_string->data, sizeof(char) * current_pos);
+			// and make that the new data
+			free(ext_string->data);
+			ext_string->data = buffer;
 		}
-		memcpy(dest + current_pos, current_string, current_length * sizeof(char));
-		if (stop) {
-			current_pos = max_length - 1;
-			break;
-		}
+		memcpy(ext_string->data + current_pos, current_string, current_length * sizeof(char));
 		current_pos += current_length;
 	}
-	memcpy(dest + current_pos, "\0", sizeof(char));
+	memcpy(ext_string->data + current_pos, "\0", sizeof(char));
 
-	return dest;
+	return ext_string;
+}
+
+xdebug_extensible_string* new_xdebug_extensible_string()
+{
+	xdebug_extensible_string* result;
+	char* data;
+
+	result = (xdebug_extensible_string*) malloc(sizeof(xdebug_extensible_string));
+	data = (char*) malloc(sizeof(char) * XDEBUG_EXTENSIBLE_STRING_DELTA_INCR);
+
+	if (!result || !data) {
+		if (result) {
+			free(result);
+		}
+		return NULL;
+	}
+
+	result->data = data;
+	result->current_length = XDEBUG_EXTENSIBLE_STRING_DELTA_INCR;
+	return result;
+}
+
+void free_xdebug_extensible_string(xdebug_extensible_string* ext_string)
+{
+	if (ext_string) {
+		free(ext_string->data);
+		free(ext_string);
+	}
 }
