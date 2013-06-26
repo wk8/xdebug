@@ -18,6 +18,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 #ifndef WIN32
 #include <unistd.h>
 #include <sys/types.h>
@@ -695,18 +696,36 @@ void xdebug_close_log(TSRMLS_D)
 	}
 }
 
-// same as strcat, except the buffer is dynamically created (needs to be freed afterwards!)
-char* xdebug_strcat(const char* a, const char* b)
+// same as strcat, except it cats a bunch of strings
+char* xdebug_strcat(char* dest, const size_t max_length, const int nb_strings, ...)
 {
-	char* result;
-	size_t l_a, l_b, l;
+	va_list args;
+	char* current_string;
+	size_t current_pos, current_length;
+	int i, stop;
 
-	l_a = strlen(a);
-	l_b = strlen(b);
-	l = l_a + l_b;
-	result = (char*) malloc(sizeof(char) * (l + 1));
-	strcpy(result, a);
-	strcpy(result + l_a, b);
+	if (max_length <= 0) {
+		return dest;
+	}
 
-	return result;
+	va_start(args, nb_strings);
+	current_pos = 0;
+	stop = 0;
+	for (i = 0; i != nb_strings; i++) {
+		current_string = va_arg(args, char*);
+		current_length = strlen(current_string);
+		if (current_pos + current_length >= max_length) {
+			stop = 1;
+			current_length = max_length - current_pos - 1;
+		}
+		memcpy(dest + current_pos, current_string, current_length * sizeof(char));
+		if (stop) {
+			current_pos = max_length - 1;
+			break;
+		}
+		current_pos += current_length;
+	}
+	memcpy(dest + current_pos, "\0", sizeof(char));
+
+	return dest;
 }

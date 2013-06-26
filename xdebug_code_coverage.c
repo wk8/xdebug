@@ -783,6 +783,15 @@ PHP_FUNCTION(xdebug_get_code_coverage)
 
 PHP_FUNCTION(xdebug_get_function_count)
 {
-	RETURN_LONG(get_socket(ht));
+	xdebug_socket_error* e;
+	int r;
+	e = new_socket_error();
+	r = get_socket(ht, e);
+	if (e && e->has_error) {
+		php_error(E_WARNING, e->error_msg);
+	}
+	free_socket_error(e);
+	// RETURN_STRING(get_socket(ht), 1);
+	RETURN_LONG(r);
 	RETURN_LONG(XG(function_count));
 }
