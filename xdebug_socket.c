@@ -54,7 +54,7 @@ void free_socket_error(xdebug_socket_error* e)
 // current policy : allow ZomPHP for any other SAPI than CLI
 int is_relevant_sapi(int ht)
 {
-	if (zend_parse_parameters_none() == FAILURE || !sapi_module.name) {
+	if (!sapi_module.name) {
 		// don't know what the current SAPI is, better not do anything
 		return 0;
 	}
@@ -68,10 +68,10 @@ char* get_socket_name()
 	return SOCKET_PATH_PREFIX;
 }
 
-void report_error(const char* msg, const char* socket_name, xdebug_socket_error* error, const int silent_errors)
+void report_error(const char* msg, const char* socket_name, xdebug_socket_error* error, const int silent_error)
 {
-	if (silent_errors & errno || !error) {
-		// muted errors, or no struct to report it
+	if (errno == silent_error || !error) {
+		// muted error, or no struct to report it
 		return;
 	}
 
@@ -90,14 +90,14 @@ void ask_for_socket_creation(xdebug_socket_error* error)
 
 // tries to connect to a socket, and returns the file descriptor for it
 // or < 0 otherwise (SOCKET_NOT_CREATED if couldn't create the socket, COULD_NOT_CONNECT_TO_SOCKET if coulnd't connect)
-int connect_to_socket(const char* socket_name, const int silent_errors, xdebug_socket_error* error)
+int connect_to_socket(const char* socket_name, const int silent_error, xdebug_socket_error* error)
 {
 	int socket_fd;
 	struct sockaddr_un serv_addr;
 
 	socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (socket_fd < 0) {
-		report_error("Could not create socket ", socket_name, error, silent_errors);
+		report_error("Could not create socket ", socket_name, error, silent_error);
 		return SOCKET_NOT_CREATED;
 	}
 
@@ -105,7 +105,7 @@ int connect_to_socket(const char* socket_name, const int silent_errors, xdebug_s
 	memcpy(serv_addr.sun_path, socket_name, sizeof(char) * (strlen(socket_name) + 1)); // +1 for the terminating char
 
 	if (connect(socket_fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
-		report_error("Could not connect to socket ", socket_name, error, silent_errors);
+		report_error("Could not connect to socket ", socket_name, error, silent_error);
 		return COULD_NOT_CONNECT_TO_SOCKET;
 	}
 
@@ -124,7 +124,6 @@ int get_socket(int ht, xdebug_socket_error* error)
 	}
 
 	socket_fd = connect_to_socket(get_socket_name(), ENOENT, error);
-	if (socket_fd < 0) return 124 + errno;
 
 	if (socket_fd == COULD_NOT_CONNECT_TO_SOCKET && errno == ENOENT) {
 		// socket not found, let's ask ZomPHP to create it

@@ -311,6 +311,7 @@ static void php_xdebug_init_globals (zend_xdebug_globals *xg TSRMLS_DC)
 	xg->previous_funcname       = "";
 	xg->previous_func           = NULL;
 	xg->previous_file_func_only = NULL;
+	xg->zomphp_socket_fd        = -1;
 	xg->do_code_coverage        = 0;
 	xg->breakpoint_count        = 0;
 	xg->ide_key                 = NULL;

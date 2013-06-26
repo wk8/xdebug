@@ -206,6 +206,7 @@ ZEND_BEGIN_MODULE_GLOBALS(xdebug)
 	char                     *previous_funcname;
 	xdebug_cc_func_only_func *previous_func;
 	xdebug_cc_func_only_file *previous_file_func_only;
+	int                       zomphp_socket_fd;
 
 	/* used for collection errors */
 	zend_bool     do_collect_errors;

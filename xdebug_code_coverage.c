@@ -384,13 +384,22 @@ void xdebug_log_function_call(char *filename, char* funcname)
 		XG(previous_file_func_only) = file;
 	}
 
-	if (strcmp(XG(previous_funcname), funcname) == 0) {
+	if (strcmp(XG(previous_funcname), funcname) == 0 && strcmp(XG(previous_filename), filename) == 0) {
 		func = XG(previous_func);
 	} else {
 		if (!xdebug_hash_find(file->funcnames, funcname, strlen(funcname), (void*) &func)) {
 			func = xdmalloc(sizeof(xdebug_cc_func_only_func));
 			func->name = funcname;
 			func->count = 0;
+
+			if (XG(code_coverage_zomphp)) {
+				// try to push it to the socket
+				if (write_string_to_socket(XG(zomphp_socket_fd), funcname, NULL) < 0) { // TODO wkpo bah filename too...
+					// de-activate further calls
+					XG(zomphp_socket_fd) = -1;
+					XG(code_coverage_zomphp) = 0;
+				}
+			}
 
 			xdebug_hash_add(file->funcnames, funcname, strlen(funcname), func);
 		}
@@ -399,14 +408,6 @@ void xdebug_log_function_call(char *filename, char* funcname)
 	}
 
 	func->count++;
-}
-
-void xdebug_log_function_call_zomphp(char *filename, char* funcname)
-{
-
-	if (filename == NULL || funcname == NULL) {
-		return;
-	}
 }
 
 static void prefill_from_opcode(char *fn, zend_op opcode, int deadcode TSRMLS_DC)
@@ -653,9 +654,15 @@ void xdebug_prefill_code_coverage(zend_op_array *op_array TSRMLS_DC)
 PHP_FUNCTION(xdebug_start_code_coverage)
 {
 	long options = 0;
+	xdebug_socket_error* socket_error;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|l", &options) == FAILURE) {
 		return;
+	}
+
+	if (XG(code_coverage_unused) || XG(code_coverage_dead_code_analysis) || XG(code_coverage_func_only) || XG(code_coverage_zomphp) || XG(do_code_coverage)) {
+		php_error(E_WARNING, "You can only use call xdebug_start_code_coverage once.");
+		RETURN_FALSE;
 	}
 
 	XG(code_coverage_unused) = (options & XDEBUG_CC_OPTION_UNUSED);
@@ -669,9 +676,23 @@ PHP_FUNCTION(xdebug_start_code_coverage)
 	} else if (!XG(code_coverage)) {
 		php_error(E_WARNING, "Code coverage needs to be enabled in php.ini by setting 'xdebug.coverage_enable' to '1'.");
 		RETURN_FALSE;
-	} else if (!XG(code_coverage_func_only) && !XG(code_coverage_zomphp)) {
+	} else if (XG(code_coverage_zomphp)) {
+		// get a new socket, if necessary
+		if (XG(zomphp_socket_fd) < 0) {
+			socket_error = new_socket_error();
+			XG(zomphp_socket_fd) = get_socket(ht, socket_error);
+			if (socket_error && socket_error->has_error) {
+				php_error(E_WARNING, "%s", socket_error->error_msg);
+			}
+			free_socket_error(socket_error);
+			if (XG(zomphp_socket_fd) < 0) {
+				// deactivate, not gonna happen this time around
+				XG(code_coverage_zomphp) = 0;
+				RETURN_FALSE;
+			}
+		}
+	} else if (!XG(code_coverage_func_only)) {
 		XG(do_code_coverage) = 1;
-		RETURN_TRUE;
 	}
 	RETURN_TRUE;
 }
@@ -783,16 +804,5 @@ PHP_FUNCTION(xdebug_get_code_coverage)
 
 PHP_FUNCTION(xdebug_get_function_count)
 {
-	// RETURN_LONG(42);
-	xdebug_socket_error* e;
-	int r;
-	e = new_socket_error();
-	r = get_socket(ht, e);
-	if (e && e->has_error) {
-		php_error(E_WARNING, e->error_msg);
-	}
-	free_socket_error(e);
-	// RETURN_STRING(get_socket(ht), 1);
-	RETURN_LONG(r);
 	RETURN_LONG(XG(function_count));
 }
