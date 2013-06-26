@@ -731,6 +731,7 @@ xdebug_extensible_string* xdebug_extensible_strcat(xdebug_extensible_string* ext
 		current_pos += current_length;
 	}
 	memcpy(ext_string->data + current_pos, "\0", sizeof(char));
+	va_end(args);
 
 	return ext_string;
 }
