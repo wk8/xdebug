@@ -31,6 +31,9 @@ xdebug_socket_error* new_socket_error()
 	error_msg = (char*) malloc(sizeof(char) * MAX_ERROR_MSG_LENGTH);
 
 	if (!result || !error_msg) {
+		if (result) {
+			free(result);
+		}
 		return NULL;
 	}
 
