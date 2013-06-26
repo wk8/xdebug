@@ -35,7 +35,7 @@ xdebug_socket_error* new_socket_error()
 	}
 
 	result->error_msg = error_msg;
-	result->has_error = 1;
+	result->has_error = 0;
 	return result;
 }
 
@@ -79,6 +79,7 @@ void report_error(const char* msg, const char* socket_name, xdebug_socket_error*
 	}
 
 	xdebug_strcat(error->error_msg, MAX_ERROR_MSG_LENGTH, 4, msg, socket_name, " : ", strerror(errno));
+	error->has_error = 1;
 }
 
 // tries to connect to a socket, and returns the file descriptor for it

@@ -777,7 +777,7 @@ PHP_FUNCTION(xdebug_get_code_coverage)
 	} else if (XG(do_code_coverage)) {
 		xdebug_hash_apply(XG(code_coverage), (void *) return_value, add_file);
 	} else {
-	    RETURN_FALSE;
+		RETURN_FALSE;
 	}
 }
 
