@@ -693,6 +693,7 @@ PHP_FUNCTION(xdebug_start_code_coverage)
 	RETURN_TRUE;
 }
 
+// FIXME: ZomPHP does NOT support that!
 PHP_FUNCTION(xdebug_stop_code_coverage)
 {
 	long cleanup = 1;
