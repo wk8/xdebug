@@ -311,6 +311,7 @@ static void php_xdebug_init_globals (zend_xdebug_globals *xg TSRMLS_DC)
 	xg->previous_funcname       = "";
 	xg->previous_func           = NULL;
 	xg->previous_file_func_only = NULL;
+	xg->extensible_buffer       = NULL;
 	xg->zomphp_socket_fd        = -1;
 	xg->do_code_coverage        = 0;
 	xg->breakpoint_count        = 0;
@@ -844,9 +845,10 @@ PHP_RINIT_FUNCTION(xdebug)
 	XG(do_trace)      = 0;
 	XG(coverage_enable) = 0;
 	XG(do_code_coverage) = 0;
-	XG(code_coverage) = xdebug_hash_alloc(32, xdebug_coverage_file_dtor);
-	XG(cc_func_only)  = xdebug_hash_alloc(32, xdebug_cc_func_only_file_dtor);
-	XG(stack)         = xdebug_llist_alloc(xdebug_stack_element_dtor);
+	XG(code_coverage)     = xdebug_hash_alloc(32, xdebug_coverage_file_dtor);
+	XG(cc_func_only)      = xdebug_hash_alloc(32, xdebug_cc_func_only_file_dtor);
+	XG(extensible_buffer) = new_xdebug_extensible_string();
+	XG(stack)             = xdebug_llist_alloc(xdebug_stack_element_dtor);
 	XG(trace_file)    = NULL;
 	XG(tracefile_name) = NULL;
 	XG(profile_file)  = NULL;
@@ -996,6 +998,8 @@ ZEND_MODULE_POST_ZEND_DEACTIVATE_D(xdebug)
 	XG(code_coverage) = NULL;
 	xdebug_hash_destroy(XG(cc_func_only));
 	XG(cc_func_only) = NULL;
+
+	free_xdebug_extensible_string(XG(extensible_buffer));
 
 	if (XG(zomphp_socket_fd) >= 0) {
 		close(XG(zomphp_socket_fd));
