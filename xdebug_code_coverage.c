@@ -16,6 +16,9 @@
    +----------------------------------------------------------------------+
  */
 
+#include <limits.h>
+#include <math.h>
+
 #include "php_xdebug.h"
 #include "xdebug_private.h"
 #include "xdebug_set.h"
@@ -361,10 +364,16 @@ void xdebug_count_line(char *filename, int lineno, int executable, int deadcode 
 	}
 }
 
+#define MAX_LINE_NB INT_MAX
+#define MAX_LINE_NB_LENGTH ((int) (ceil(log10(MAX_LINE_NB)) + 2))
+#define FUNCTION_DELIMITER "###" // TODO wkpo \n ?
+#define FUNC_NAME_DELIMITER ":"
+
 void xdebug_log_function_call(char *filename, char* funcname, int lineno)
 {
 	xdebug_cc_func_only_file *file;
 	xdebug_cc_func_only_func *func;
+	char lineno_buffer[MAX_LINE_NB_LENGTH];
 
 	if (filename == NULL || funcname == NULL) {
 		return;
@@ -393,8 +402,15 @@ void xdebug_log_function_call(char *filename, char* funcname, int lineno)
 			func->count = 0;
 
 			if (XG(code_coverage_zomphp)) {
+				// build the string to push : first the lineno buffer
+				if (lineno > MAX_LINE_NB) {
+					// er... shouldn't happen, but eh, let's not segfault
+					lineno = MAX_LINE_NB;
+				}
+				sprintf(lineno_buffer, "%d", lineno);
+				XG(extensible_buffer) = xdebug_extensible_strcat(XG(extensible_buffer), 6, FUNCTION_DELIMITER, filename, FUNC_NAME_DELIMITER, funcname, FUNC_NAME_DELIMITER, lineno_buffer);
 				// try to push it to the socket
-				if (write_string_to_socket(XG(zomphp_socket_fd), funcname, NULL) < 0) { // TODO wkpo bah filename too... PLUS lineno PLUS demarcation
+				if (!XG(extensible_buffer) || write_string_to_socket(XG(zomphp_socket_fd), XG(extensible_buffer)->data, NULL) < 0) {
 					// de-activate further calls for this request
 					XG(code_coverage_zomphp) = 0;
 				}

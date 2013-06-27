@@ -74,8 +74,9 @@ void report_error(const char* msg, const char* socket_name, xdebug_socket_error*
 		return;
 	}
 
-	xdebug_extensible_strcat(error->error_msg, 5, "ZomPHP Error: ", msg, socket_name, " : ", strerror(errno));
-	error->has_error = 1;
+	if(error->error_msg = xdebug_extensible_strcat(error->error_msg, 5, "ZomPHP Error: ", msg, socket_name, " : ", strerror(errno))) {
+		error->has_error = 1;
+	}
 
 	// reset errno
 	errno = 0;
