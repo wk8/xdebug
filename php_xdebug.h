@@ -33,7 +33,6 @@
 #include "xdebug_hash.h"
 #include "xdebug_llist.h"
 #include "xdebug_code_coverage.h"
-// #include "usefulstuff.h" // TODO wkpo necessaire??
 
 extern zend_module_entry xdebug_module_entry;
 #define phpext_xdebug_ptr &xdebug_module_entry
