@@ -395,8 +395,7 @@ void xdebug_log_function_call(char *filename, char* funcname, int lineno)
 			if (XG(code_coverage_zomphp)) {
 				// try to push it to the socket
 				if (write_string_to_socket(XG(zomphp_socket_fd), funcname, NULL) < 0) { // TODO wkpo bah filename too... PLUS lineno PLUS demarcation
-					// de-activate further calls
-					XG(zomphp_socket_fd) = -1;
+					// de-activate further calls for this request
 					XG(code_coverage_zomphp) = 0;
 				}
 			}
@@ -677,19 +676,16 @@ PHP_FUNCTION(xdebug_start_code_coverage)
 		php_error(E_WARNING, "Code coverage needs to be enabled in php.ini by setting 'xdebug.coverage_enable' to '1'.");
 		RETURN_FALSE;
 	} else if (XG(code_coverage_zomphp)) {
-		// get a new socket, if necessary
+		socket_error = new_socket_error();
+		XG(zomphp_socket_fd) = get_socket(socket_error);
+		if (socket_error && socket_error->has_error) {
+			php_error(E_WARNING, "%s", socket_error->error_msg->data);
+		}
+		free_socket_error(socket_error);
 		if (XG(zomphp_socket_fd) < 0) {
-			socket_error = new_socket_error();
-			XG(zomphp_socket_fd) = get_socket(socket_error);
-			if (socket_error && socket_error->has_error) {
-				php_error(E_WARNING, "%s", socket_error->error_msg->data);
-			}
-			free_socket_error(socket_error);
-			if (XG(zomphp_socket_fd) < 0) {
-				// deactivate, not gonna happen this time around
-				XG(code_coverage_zomphp) = 0;
-				RETURN_FALSE;
-			}
+			// deactivate, not gonna happen this time around
+			XG(code_coverage_zomphp) = 0;
+			RETURN_FALSE;
 		}
 	} else if (!XG(code_coverage_func_only)) {
 		XG(do_code_coverage) = 1;
