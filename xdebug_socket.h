@@ -19,5 +19,6 @@ void free_socket_error(xdebug_socket_error* e);
 
 int get_socket(xdebug_socket_error* error);
 size_t write_string_to_socket(int socket_fd, const char* str, xdebug_socket_error* error);
+void notify_zomphp_dying_sapi();
 
 #endif

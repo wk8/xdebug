@@ -26,7 +26,7 @@
 #define MAX_PID UINT_MAX // the max PID possible (not even the current one, we just need a gross bound)
 #define MAX_PID_LENGTH ((int) (ceil(log10(MAX_PID)) + 1))
 #define IN_SOCKET_PATH "/tmp/zomphp_socket_in"
-// TODO wkpo bah out..
+#define OUT_SOCKET_PATH "/tmp/zomphp_socket_out"
 
 // fills socket_name with the current process's socket name
 void get_socket_name(char* socket_name)
@@ -132,17 +132,17 @@ size_t write_string_to_socket(int socket_fd, const char* str, xdebug_socket_erro
 	return result;
 }
 
-// asks ZomPHP's deamon to create a socket for this process
-void ask_for_socket_creation(xdebug_socket_error* error)
+// tries the current process' PID to that socket
+void report_pid_to_socket(const char* socket_name, xdebug_socket_error* error)
 {
 	int socket_fd;
 	char pid[MAX_PID_LENGTH + strlen(FUNCTION_DELIMITER) + 1];
 
-	socket_fd = connect_to_socket(IN_SOCKET_PATH, 0, NULL);
+	socket_fd = connect_to_socket(socket_name, 0, NULL);
 
 	if (socket_fd == COULD_NOT_CONNECT_TO_SOCKET && errno == ENOENT) {
 		// means the ZomPHP daemon hasn't been started, let's notify the user
-		report_error("Looks like the ZomPHP has not been started. Could not connect to ", IN_SOCKET_PATH, error, 0);
+		report_error("Looks like the ZomPHP daemon has not been started. Could not connect to ", socket_name, error, 0);
 	}
 
 	if (socket_fd < 0) {
@@ -154,12 +154,24 @@ void ask_for_socket_creation(xdebug_socket_error* error)
 	sprintf(pid, "%d%s", (int) getpid(), FUNCTION_DELIMITER);
 	write_string_to_socket(socket_fd, pid, NULL);
 
-	// we need to close the connection to let it process the data
+	// we need to close the connection to let the daemon process the data
 	close(socket_fd);
 }
 
+// asks ZomPHP's deamon to create a socket for this process
+void ask_for_socket_creation(xdebug_socket_error* error)
+{
+	report_pid_to_socket(IN_SOCKET_PATH, error);
+}
+
+// meant to be called when a SAPI is shutting down, if it has used ZomPHP at all
+void notify_zomphp_dying_sapi()
+{
+	report_pid_to_socket(OUT_SOCKET_PATH, NULL);
+}
+
 // returns the file descriptor for the current process's socket, after having connected
-// will ask for the socket's creation if it wasn't found // TODO wkpo
+// will ask for the socket's creation if it wasn't found
 // if the result is < 0, means that some kind of error occurred
 int get_socket(xdebug_socket_error* error)
 {
