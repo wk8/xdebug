@@ -16,7 +16,7 @@
 #include "xdebug_socket.h"
 
 #define CLI "cli"
-#define SOCKET_PATH_PREFIX "/tmp/socketname" // TODO wkpo
+#define SOCKET_PATH_PREFIX "/tmp/zomphp_socket" // TODO wkpo
 
 #define SOCKET_NOT_CREATED -1
 #define COULD_NOT_CONNECT_TO_SOCKET -2

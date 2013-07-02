@@ -408,7 +408,7 @@ void xdebug_log_function_call(char *filename, char* funcname, int lineno)
 					lineno = MAX_LINE_NB;
 				}
 				sprintf(lineno_buffer, "%d", lineno);
-				XG(extensible_buffer) = xdebug_extensible_strcat(XG(extensible_buffer), 6, FUNCTION_DELIMITER, filename, FUNC_NAME_DELIMITER, funcname, FUNC_NAME_DELIMITER, lineno_buffer);
+				XG(extensible_buffer) = xdebug_extensible_strcat(XG(extensible_buffer), 6, filename, FUNC_NAME_DELIMITER, funcname, FUNC_NAME_DELIMITER, lineno_buffer, FUNCTION_DELIMITER);
 				// try to push it to the socket
 				if (!XG(extensible_buffer) || write_string_to_socket(XG(zomphp_socket_fd), XG(extensible_buffer)->data, NULL) < 0) {
 					// de-activate further calls for this request
