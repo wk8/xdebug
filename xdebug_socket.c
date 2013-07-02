@@ -173,18 +173,18 @@ void notify_zomphp_dying_sapi()
 // if the result is < 0, means that some kind of error occurred
 int get_socket(xdebug_socket_error* error)
 {
-	int socket_fd, is_cli_sapi, nb_retries;
+	int socket_fd, is_cli, nb_retries;
 	char socket_name[SOCKET_PATH_PREFIX_LENGTH + MAX_PID_LENGTH + 2];
 
-	is_cli_sapi = is_cli_sapi();
+	is_cli = is_cli_sapi();
 
 	// is CLI, then let's ask for socket creation, and wait for the deamon to create it (just a reasonable amount of time)
-	if (is_cli_sapi && !report_pid_to_socket(IN_SOCKET_PATH_CLI, error)) {
+	if (is_cli && !report_pid_to_socket(IN_SOCKET_PATH_CLI, error)) {
 		// didn't find the socket for that
 		return -1;
 	}
 
-	nb_retries = is_cli_sapi ? MAX_TRIES_ON_CLI : 1; // don't wait for anything else than CLI
+	nb_retries = is_cli ? MAX_TRIES_ON_CLI : 1; // don't wait for anything else than CLI
 	get_socket_name(socket_name);
 
 	do {
@@ -192,7 +192,7 @@ int get_socket(xdebug_socket_error* error)
 		nb_retries--;
 	} while(socket_fd < 0 && nb_retries >= 0 && !usleep(WAIT_PER_TRY_ON_CLI));
 
-	if (socket_fd == COULD_NOT_CONNECT_TO_SOCKET && errno == ENOENT && !is_cli_sapi) {
+	if (socket_fd == COULD_NOT_CONNECT_TO_SOCKET && errno == ENOENT && !is_cli) {
 		// socket not found, let's ask ZomPHP to create it
 		report_pid_to_socket(IN_SOCKET_PATH, error);
 	}
