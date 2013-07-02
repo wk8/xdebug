@@ -690,6 +690,8 @@ PHP_FUNCTION(xdebug_start_code_coverage)
 		php_error(E_WARNING, "Code coverage needs to be enabled in php.ini by setting 'xdebug.coverage_enable' to '1'.");
 		RETURN_FALSE;
 	} else if (XG(code_coverage_zomphp)) {
+		// remember we've used ZomPHP, we'll try to shut our thread down when this SAPI dies
+		XG(has_used_zomphp) = 1;
 		socket_error = new_socket_error();
 		XG(zomphp_socket_fd) = get_socket(socket_error);
 		if (socket_error && socket_error->has_error) {

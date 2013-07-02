@@ -56,6 +56,7 @@
 #include "xdebug_mm.h"
 #include "xdebug_var.h"
 #include "xdebug_profiler.h"
+#include "xdebug_socket.h"
 #include "xdebug_stack.h"
 #include "xdebug_superglobals.h"
 #include "xdebug_tracing.h"
@@ -652,6 +653,9 @@ PHP_MINIT_FUNCTION(xdebug)
 		XDEBUG_SET_OPCODE_OVERRIDE_COMMON(ZEND_ADD_TRAIT);
 		XDEBUG_SET_OPCODE_OVERRIDE_COMMON(ZEND_BIND_TRAITS);
 #endif
+
+		// and we need to init has_used_zomphp here too
+		XG(has_used_zomphp) = 0;
 	}
 
 	XDEBUG_SET_OPCODE_OVERRIDE_ASSIGN(include_or_eval, ZEND_INCLUDE_OR_EVAL);
@@ -716,6 +720,11 @@ PHP_MSHUTDOWN_FUNCTION(xdebug)
 {
 	if (XG(profiler_aggregate)) {
 		xdebug_profiler_output_aggr_data(NULL TSRMLS_CC);
+	}
+
+	if (XG(has_used_zomphp)) {
+		// notify the daemon to shut down the thread for that process
+		notify_zomphp_dying_sapi();
 	}
 
 	/* Reset compile, execute and error callbacks */

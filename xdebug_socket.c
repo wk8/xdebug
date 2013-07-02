@@ -140,7 +140,7 @@ void report_pid_to_socket(const char* socket_name, xdebug_socket_error* error)
 
 	socket_fd = connect_to_socket(socket_name, 0, NULL);
 
-	if (socket_fd == COULD_NOT_CONNECT_TO_SOCKET && errno == ENOENT) {
+	if (socket_fd == COULD_NOT_CONNECT_TO_SOCKET && (errno == ENOENT || errno == ECONNREFUSED)) {
 		// means the ZomPHP daemon hasn't been started, let's notify the user
 		report_error("Looks like the ZomPHP daemon has not been started. Could not connect to ", socket_name, error, 0);
 	}
