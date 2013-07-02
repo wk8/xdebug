@@ -26,7 +26,7 @@
 #define MAX_PID UINT_MAX // the max PID possible (not even the current one, we just need a gross bound)
 #define MAX_PID_LENGTH ((int) (ceil(log10(MAX_PID)) + 1))
 #define IN_SOCKET_PATH "/tmp/zomphp_socket_in"
-#define IN_SOCKET_PATH_CLI "/tmp/zomphp_socket_in/cli"
+#define IN_SOCKET_PATH_CLI "/tmp/zomphp_socket_in_cli"
 #define OUT_SOCKET_PATH "/tmp/zomphp_socket_out"
 #define MAX_WAIT_ON_CLI 250 // max number of milliseconds we're prepared to wait TOTAL in a CLI script to get our socket
 #define MAX_TRIES_ON_CLI 5 // max number of times we'll retry on CLI
