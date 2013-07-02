@@ -366,8 +366,6 @@ void xdebug_count_line(char *filename, int lineno, int executable, int deadcode 
 
 #define MAX_LINE_NB INT_MAX
 #define MAX_LINE_NB_LENGTH ((int) (ceil(log10(MAX_LINE_NB)) + 2))
-#define FUNCTION_DELIMITER "\n"
-#define FUNC_NAME_DELIMITER ":"
 
 void xdebug_log_function_call(char *filename, char* funcname, int lineno)
 {

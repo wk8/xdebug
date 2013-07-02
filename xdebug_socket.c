@@ -10,16 +10,29 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include <errno.h>
+#include <limits.h>
+#include <math.h>
 
 #include "SAPI.h"
 
 #include "xdebug_socket.h"
-
-#define CLI "cli"
-#define SOCKET_PATH_PREFIX "/tmp/zomphp_socket" // TODO wkpo
+#include "xdebug_code_coverage.h"
 
 #define SOCKET_NOT_CREATED -1
 #define COULD_NOT_CONNECT_TO_SOCKET -2
+#define CLI "cli"
+#define SOCKET_PATH_PREFIX "/tmp/zomphp_socket"
+#define SOCKET_PATH_PREFIX_LENGTH strlen(SOCKET_PATH_PREFIX)
+#define MAX_PID UINT_MAX // the max PID possible (not even the current one, we just need a gross bound)
+#define MAX_PID_LENGTH ((int) (ceil(log10(MAX_PID)) + 1))
+#define IN_SOCKET_PATH "/tmp/zomphp_socket_in"
+// TODO wkpo bah out..
+
+// fills socket_name with the current process's socket name
+void get_socket_name(char* socket_name)
+{
+	sprintf(socket_name, "%s_%d", SOCKET_PATH_PREFIX, (int) getpid());
+}
 
 xdebug_socket_error* new_socket_error()
 {
@@ -60,13 +73,6 @@ int is_relevant_sapi()
 	return strcmp(sapi_module.name, CLI);
 }
 
-// returns the current process's socket name
-// TODO wkpo
-char* get_socket_name()
-{
-	return SOCKET_PATH_PREFIX;
-}
-
 void report_error(const char* msg, const char* socket_name, xdebug_socket_error* error, const int silent_error)
 {
 	if (errno == silent_error || !error) {
@@ -80,12 +86,6 @@ void report_error(const char* msg, const char* socket_name, xdebug_socket_error*
 
 	// reset errno
 	errno = 0;
-}
-
-// asks ZomPHP's deamon to create a socket for this process
-void ask_for_socket_creation(xdebug_socket_error* error)
-{
-	// TODO wkpo
 }
 
 // tries to connect to a socket, and returns the file descriptor for it
@@ -112,27 +112,6 @@ int connect_to_socket(const char* socket_name, const int silent_error, xdebug_so
 	return socket_fd;
 }
 
-// returns the file descriptor for the current process's socket, after having connected
-// will ask for the socket's creation if it wasn't found // TODO wkpo
-// if the result is < 0, means that some kind of error occurred
-int get_socket(xdebug_socket_error* error)
-{
-	int socket_fd;
-
-	if (!is_relevant_sapi()) {
-		return -1;
-	}
-
-	socket_fd = connect_to_socket(get_socket_name(), ENOENT, error);
-
-	if (socket_fd == COULD_NOT_CONNECT_TO_SOCKET && errno == ENOENT) {
-		// socket not found, let's ask ZomPHP to create it
-		ask_for_socket_creation(error);
-	}
-
-	return socket_fd;
-}
-
 // returns < 0 if any error
 size_t write_string_to_socket(int socket_fd, const char* str, xdebug_socket_error* error)
 {
@@ -151,4 +130,53 @@ size_t write_string_to_socket(int socket_fd, const char* str, xdebug_socket_erro
 	}
 
 	return result;
+}
+
+// asks ZomPHP's deamon to create a socket for this process
+void ask_for_socket_creation(xdebug_socket_error* error)
+{
+	int socket_fd;
+	char pid[MAX_PID_LENGTH + strlen(FUNCTION_DELIMITER) + 1];
+
+	socket_fd = connect_to_socket(IN_SOCKET_PATH, 0, NULL);
+
+	if (socket_fd == COULD_NOT_CONNECT_TO_SOCKET && errno == ENOENT) {
+		// means the ZomPHP daemon hasn't been started, let's notify the user
+		report_error("Looks like the ZomPHP has not been started. Could not connect to ", IN_SOCKET_PATH, error, 0);
+	}
+
+	if (socket_fd < 0) {
+		// in any case, not much we can do at that point
+		return;
+	}
+
+	// otherwise, let's send our PID to the daemon
+	sprintf(pid, "%d%s", (int) getpid(), FUNCTION_DELIMITER);
+	write_string_to_socket(socket_fd, pid, NULL);
+
+	// we need to close the connection to let it process the data
+	close(socket_fd);
+}
+
+// returns the file descriptor for the current process's socket, after having connected
+// will ask for the socket's creation if it wasn't found // TODO wkpo
+// if the result is < 0, means that some kind of error occurred
+int get_socket(xdebug_socket_error* error)
+{
+	int socket_fd;
+	char socket_name[SOCKET_PATH_PREFIX_LENGTH + MAX_PID_LENGTH + 2];
+
+	if (!is_relevant_sapi()) {
+		return -1;
+	}
+
+	get_socket_name(socket_name);
+	socket_fd = connect_to_socket(socket_name, ENOENT, error);
+
+	if (socket_fd == COULD_NOT_CONNECT_TO_SOCKET && errno == ENOENT) {
+		// socket not found, let's ask ZomPHP to create it
+		ask_for_socket_creation(error);
+	}
+
+	return socket_fd;
 }

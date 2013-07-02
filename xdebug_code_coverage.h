@@ -23,6 +23,10 @@
 #include "xdebug_hash.h"
 #include "xdebug_mm.h"
 
+// used by ZomPHP
+#define FUNCTION_DELIMITER "\n"
+#define FUNC_NAME_DELIMITER ":"
+
 typedef struct xdebug_coverage_line {
 	int lineno;
 	int count;
