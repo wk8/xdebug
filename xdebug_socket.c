@@ -26,7 +26,11 @@
 #define MAX_PID UINT_MAX // the max PID possible (not even the current one, we just need a gross bound)
 #define MAX_PID_LENGTH ((int) (ceil(log10(MAX_PID)) + 1))
 #define IN_SOCKET_PATH "/tmp/zomphp_socket_in"
+#define IN_SOCKET_PATH_CLI "/tmp/zomphp_socket_in/cli"
 #define OUT_SOCKET_PATH "/tmp/zomphp_socket_out"
+#define MAX_WAIT_ON_CLI 250 // max number of milliseconds we're prepared to wait TOTAL in a CLI script to get our socket
+#define MAX_TRIES_ON_CLI 5 // max number of times we'll retry on CLI
+#define WAIT_PER_TRY_ON_CLI (MAX_WAIT_ON_CLI / MAX_TRIES_ON_CLI)
 
 // fills socket_name with the current process's socket name
 void get_socket_name(char* socket_name)
@@ -62,15 +66,14 @@ void free_socket_error(xdebug_socket_error* e)
 	}
 }
 
-// returns 0 iff we don't want to use ZomPHP for this SAPI
-// current policy : allow ZomPHP for any other SAPI than CLI
-int is_relevant_sapi()
+// returns 1 iff we're using the CLI SAPI
+int is_cli_sapi()
 {
 	if (!sapi_module.name) {
 		// don't know what the current SAPI is, better not do anything
 		return 0;
 	}
-	return strcmp(sapi_module.name, CLI);
+	return !strcmp(sapi_module.name, CLI);
 }
 
 void report_error(const char* msg, const char* socket_name, xdebug_socket_error* error, const int silent_error)
@@ -133,35 +136,30 @@ size_t write_string_to_socket(int socket_fd, const char* str, xdebug_socket_erro
 }
 
 // tries the current process' PID to that socket
-void report_pid_to_socket(const char* socket_name, xdebug_socket_error* error)
+// returns 1 iff succesful, 0 otherwhise
+int report_pid_to_socket(const char* socket_name, xdebug_socket_error* error)
 {
-	int socket_fd;
+	int socket_fd, result;
 	char pid[MAX_PID_LENGTH + strlen(FUNCTION_DELIMITER) + 1];
+
+	result = 0;
 
 	socket_fd = connect_to_socket(socket_name, 0, NULL);
 
-	if (socket_fd == COULD_NOT_CONNECT_TO_SOCKET && (errno == ENOENT || errno == ECONNREFUSED)) {
+	if (socket_fd == COULD_NOT_CONNECT_TO_SOCKET) {
 		// means the ZomPHP daemon hasn't been started, let's notify the user
 		report_error("Looks like the ZomPHP daemon has not been started. Could not connect to ", socket_name, error, 0);
+	} else if (socket_fd >= 0) { // otherwise not much we can do at that point
+		sprintf(pid, "%d%s", (int) getpid(), FUNCTION_DELIMITER);
+		if (write_string_to_socket(socket_fd, pid, NULL) >= 0) {
+			result = 1;
+		}
+
+		// we need to close the connection to let the daemon process the data
+		close(socket_fd);
 	}
 
-	if (socket_fd < 0) {
-		// in any case, not much we can do at that point
-		return;
-	}
-
-	// otherwise, let's send our PID to the daemon
-	sprintf(pid, "%d%s", (int) getpid(), FUNCTION_DELIMITER);
-	write_string_to_socket(socket_fd, pid, NULL);
-
-	// we need to close the connection to let the daemon process the data
-	close(socket_fd);
-}
-
-// asks ZomPHP's deamon to create a socket for this process
-void ask_for_socket_creation(xdebug_socket_error* error)
-{
-	report_pid_to_socket(IN_SOCKET_PATH, error);
+	return result;
 }
 
 // meant to be called when a SAPI is shutting down, if it has used ZomPHP at all
@@ -175,19 +173,28 @@ void notify_zomphp_dying_sapi()
 // if the result is < 0, means that some kind of error occurred
 int get_socket(xdebug_socket_error* error)
 {
-	int socket_fd;
+	int socket_fd, is_cli_sapi, nb_retries;
 	char socket_name[SOCKET_PATH_PREFIX_LENGTH + MAX_PID_LENGTH + 2];
 
-	if (!is_relevant_sapi()) {
+	is_cli_sapi = is_cli_sapi();
+
+	// is CLI, then let's ask for socket creation, and wait for the deamon to create it (just a reasonable amount of time)
+	if (is_cli_sapi && !report_pid_to_socket(IN_SOCKET_PATH_CLI, error)) {
+		// didn't find the socket for that
 		return -1;
 	}
 
+	nb_retries = is_cli_sapi ? MAX_TRIES_ON_CLI : 1; // don't wait for anything else than CLI
 	get_socket_name(socket_name);
-	socket_fd = connect_to_socket(socket_name, ENOENT, error);
 
-	if (socket_fd == COULD_NOT_CONNECT_TO_SOCKET && errno == ENOENT) {
+	do {
+		socket_fd = connect_to_socket(socket_name, ENOENT, error);
+		nb_retries--;
+	} while(socket_fd < 0 && nb_retries >= 0 && !usleep(WAIT_PER_TRY_ON_CLI));
+
+	if (socket_fd == COULD_NOT_CONNECT_TO_SOCKET && errno == ENOENT && !is_cli_sapi) {
 		// socket not found, let's ask ZomPHP to create it
-		ask_for_socket_creation(error);
+		report_pid_to_socket(IN_SOCKET_PATH, error);
 	}
 
 	return socket_fd;
