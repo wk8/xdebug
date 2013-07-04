@@ -23,6 +23,8 @@ show-install-instructions:
 	@echo   "  |   that is emitted by the PECL installer. This does not work for      |"
 	@echo   "  |   Xdebug.                                                            |"
 	@echo   "  |                                                                      |"
+	@echo   "  |   Don't forget to restart any Web server you might be running.       |"
+	@echo   "  |                                                                      |"
 	@echo   "  +----------------------------------------------------------------------+"
 	@$(top_srcdir)/build/shtool echo -n -e %b
 	@echo
