@@ -29,7 +29,7 @@
 #define IN_SOCKET_PATH_CLI "/tmp/zomphp_socket_in_cli"
 #define OUT_SOCKET_PATH "/tmp/zomphp_socket_out"
 // max number of microseconds we're prepared to wait TOTAL in a CLI script to get our socket
-#define MAX_WAIT_ON_CLI 250000 // 250 ms
+#define MAX_WAIT_ON_CLI 1000000 // was 250 ms
 #define MAX_TRIES_ON_CLI 5 // max number of times we'll retry on CLI
 #define WAIT_PER_TRY_ON_CLI (MAX_WAIT_ON_CLI / MAX_TRIES_ON_CLI)
 
