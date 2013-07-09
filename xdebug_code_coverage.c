@@ -694,7 +694,7 @@ PHP_FUNCTION(xdebug_start_code_coverage)
 		XG(has_used_zomphp) = 1;
 		socket_error = new_socket_error();
 		XG(zomphp_socket_fd) = get_socket(socket_error);
-		if (socket_error && socket_error->has_error) {
+		if (XG(zomphp_socket_fd) < 0 && socket_error && socket_error->has_error) {
 			php_error(E_WARNING, "%s", socket_error->error_msg->data);
 		}
 		free_socket_error(socket_error);

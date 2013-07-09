@@ -10,5 +10,3 @@ phpize \
 && ./configure \
 && make \
 && make install
-
-echo "Xdebug installed! Don't forget to restart any Web server you might be running"
