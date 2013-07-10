@@ -29,9 +29,9 @@
 #define IN_SOCKET_PATH_CLI "/tmp/zomphp_socket_in_cli"
 #define OUT_SOCKET_PATH "/tmp/zomphp_socket_out"
 // max number of microseconds we're prepared to wait TOTAL in a CLI script to get our socket
-#define MAX_WAIT_ON_CLI 1000000 // was 250 ms
-#define MAX_TRIES_ON_CLI 5 // max number of times we'll retry on CLI
-#define WAIT_PER_TRY_ON_CLI (MAX_WAIT_ON_CLI / MAX_TRIES_ON_CLI)
+#define MAX_WAIT_ON_CLI 500000 // 500 ms
+#define MAX_RETRIES_ON_CLI 10 // max number of times we'll retry on CLI
+#define WAIT_PER_TRY_ON_CLI (MAX_WAIT_ON_CLI / MAX_RETRIES_ON_CLI)
 
 // fills socket_name with the current process's socket name
 void get_socket_name(char* socket_name)
@@ -185,11 +185,11 @@ int get_socket(xdebug_socket_error* error)
 		return -1;
 	}
 
-	nb_retries = is_cli ? MAX_TRIES_ON_CLI : 1; // don't wait for anything else than CLI
+	nb_retries = is_cli ? MAX_RETRIES_ON_CLI : 0; // don't wait for anything else than CLI
 	get_socket_name(socket_name);
 
 	do {
-		socket_fd = connect_to_socket(socket_name, ENOENT, error);
+		socket_fd = connect_to_socket(socket_name, ENOENT, is_cli ? NULL : error); // no need to report anything in CLI
 		nb_retries--;
 	} while(socket_fd < 0 && nb_retries >= 0 && !usleep(WAIT_PER_TRY_ON_CLI));
 
