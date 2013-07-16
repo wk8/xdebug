@@ -50,6 +50,7 @@ void xdebug_cc_func_only_func_dtor(void *data)
 {
 	xdebug_cc_func_only_func *func = (xdebug_cc_func_only_func *) data;
 
+	xdfree(func->name);
 	xdfree(func);
 }
 
@@ -326,7 +327,7 @@ void xdebug_count_line(char *filename, int lineno, int executable, int deadcode 
 	xdebug_coverage_file *file;
 	xdebug_coverage_line *line;
 
-	if (strcmp(XG(previous_filename), filename) == 0) {
+	if (XG(previous_file) && strcmp(XG(previous_file)->name, filename) == 0) {
 		file = XG(previous_file);
 	} else {
 		/* Check if the file already exists in the hash */
@@ -339,7 +340,6 @@ void xdebug_count_line(char *filename, int lineno, int executable, int deadcode 
 
 			xdebug_hash_add(XG(code_coverage), filename, strlen(filename), file);
 		}
-		XG(previous_filename) = file->name;
 		XG(previous_file) = file;
 	}
 
@@ -369,6 +369,7 @@ void xdebug_count_line(char *filename, int lineno, int executable, int deadcode 
 
 void xdebug_log_function_call(char *filename, char* funcname, int lineno)
 {
+	char same_file;
 	xdebug_cc_func_only_file *file;
 	xdebug_cc_func_only_func *func;
 	char lineno_buffer[MAX_LINE_NB_LENGTH];
@@ -377,9 +378,11 @@ void xdebug_log_function_call(char *filename, char* funcname, int lineno)
 		return;
 	}
 
-	if (strcmp(XG(previous_filename), filename) == 0) {
+	if (XG(previous_file_func_only) && strcmp(XG(previous_file_func_only)->name, filename) == 0) {
 		file = XG(previous_file_func_only);
+		same_file = 1;
 	} else {
+		same_file = 0;
 		if (!xdebug_hash_find(XG(cc_func_only), filename, strlen(filename), (void*) &file)) {
 			file = xdmalloc(sizeof(xdebug_cc_func_only_file));
 			file->name = xdstrdup(filename);
@@ -387,16 +390,15 @@ void xdebug_log_function_call(char *filename, char* funcname, int lineno)
 
 			xdebug_hash_add(XG(cc_func_only), filename, strlen(filename), file);
 		}
-		XG(previous_filename) = file->name;
 		XG(previous_file_func_only) = file;
 	}
 
-	if (strcmp(XG(previous_funcname), funcname) == 0 && strcmp(XG(previous_filename), filename) == 0) {
+	if (XG(previous_func) && strcmp(XG(previous_func)->name, funcname) == 0 && same_file) {
 		func = XG(previous_func);
 	} else {
 		if (!xdebug_hash_find(file->funcnames, funcname, strlen(funcname), (void*) &func)) {
 			func = xdmalloc(sizeof(xdebug_cc_func_only_func));
-			func->name = funcname;
+			func->name = xdstrdup(funcname);
 			func->count = 0;
 
 			if (XG(code_coverage_zomphp)) {
@@ -416,7 +418,6 @@ void xdebug_log_function_call(char *filename, char* funcname, int lineno)
 
 			xdebug_hash_add(file->funcnames, funcname, strlen(funcname), func);
 		}
-		XG(previous_funcname) = funcname;
 		XG(previous_func) = func;
 	}
 
@@ -719,7 +720,6 @@ PHP_FUNCTION(xdebug_stop_code_coverage)
 	}
 	if (XG(do_code_coverage)) {
 		if (cleanup) {
-			XG(previous_filename) = "";
 			XG(previous_file) = NULL;
 			xdebug_hash_destroy(XG(code_coverage));
 			XG(code_coverage) = xdebug_hash_alloc(32, xdebug_coverage_file_dtor);

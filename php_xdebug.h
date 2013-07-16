@@ -201,9 +201,7 @@ ZEND_BEGIN_MODULE_GLOBALS(xdebug)
 	xdebug_hash  *cc_func_only;
 	unsigned int  function_count;
 	int           reserved_offset;
-	char                     *previous_filename;
 	xdebug_coverage_file     *previous_file;
-	char                     *previous_funcname;
 	xdebug_cc_func_only_func *previous_func;
 	xdebug_cc_func_only_file *previous_file_func_only;
 	xdebug_extensible_string *extensible_buffer;

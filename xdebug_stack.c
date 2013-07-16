@@ -1110,7 +1110,7 @@ function_stack_entry *xdebug_add_stack_frame(zend_execute_data *zdata, zend_op_a
 				tmp->varc++;
 			}
 
-			/* Sometimes not enough arguments are send to a user defined
+			/* Sometimes not enough arguments are sent to a user defined
 			 * function, so we have to gather only the name for those extra. */
 			if (tmp->user_defined == XDEBUG_EXTERNAL && arguments_sent < arguments_wanted) {
 				for (i = arguments_sent; i < arguments_wanted; i++) {

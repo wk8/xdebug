@@ -307,9 +307,7 @@ static void php_xdebug_init_globals (zend_xdebug_globals *xg TSRMLS_DC)
 	xg->do_trace                = 0;
 	xg->trace_file              = NULL;
 	xg->coverage_enable         = 0;
-	xg->previous_filename       = "";
 	xg->previous_file           = NULL;
-	xg->previous_funcname       = "";
 	xg->previous_func           = NULL;
 	xg->previous_file_func_only = NULL;
 	xg->extensible_buffer       = NULL;
