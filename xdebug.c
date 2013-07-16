@@ -313,6 +313,8 @@ static void php_xdebug_init_globals (zend_xdebug_globals *xg TSRMLS_DC)
 	xg->extensible_buffer       = NULL;
 	xg->zomphp_socket_fd        = -1;
 	xg->do_code_coverage        = 0;
+	xg->vanilla_code_coverage   = 0;
+	xg->ongoing_func_name       = NULL;
 	xg->breakpoint_count        = 0;
 	xg->ide_key                 = NULL;
 	xg->output_is_tty           = OUTPUT_NOT_CHECKED;
@@ -998,8 +1000,13 @@ ZEND_MODULE_POST_ZEND_DEACTIVATE_D(xdebug)
 	XG(do_trace)                = 0;
 	XG(coverage_enable)         = 0;
 	XG(do_code_coverage)        = 0;
+	XG(vanilla_code_coverage)   = 0;
 	XG(code_coverage_func_only) = 0;
 	XG(code_coverage_zomphp)    = 0;
+	if (XG(ongoing_func_name)) {
+		xdfree(XG(ongoing_func_name));
+		XG(ongoing_func_name) = NULL;
+	}
 
 	xdebug_hash_destroy(XG(code_coverage));
 	XG(code_coverage) = NULL;

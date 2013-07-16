@@ -327,6 +327,18 @@ void xdebug_count_line(char *filename, int lineno, int executable, int deadcode 
 	xdebug_coverage_file *file;
 	xdebug_coverage_line *line;
 
+	if (!XG(vanilla_code_coverage)) {
+		// either 'func only' or 'zomphp' mode!
+		if (XG(ongoing_func_name)) {
+			xdebug_log_function_call(filename, XG(ongoing_func_name), lineno);
+			// cleanup
+			xdfree(XG(ongoing_func_name));
+			XG(ongoing_func_name) = NULL;
+		}
+		// no need to do the vanilla stuff
+		return;
+	}
+
 	if (XG(previous_file) && strcmp(XG(previous_file)->name, filename) == 0) {
 		file = XG(previous_file);
 	} else {
@@ -674,7 +686,7 @@ PHP_FUNCTION(xdebug_start_code_coverage)
 		return;
 	}
 
-	if (XG(code_coverage_unused) || XG(code_coverage_dead_code_analysis) || XG(code_coverage_func_only) || XG(code_coverage_zomphp) || XG(do_code_coverage)) {
+	if (XG(code_coverage_unused) || XG(code_coverage_dead_code_analysis) || XG(do_code_coverage)) {
 		php_error(E_WARNING, "You can only use call xdebug_start_code_coverage once.");
 		RETURN_FALSE;
 	}
@@ -705,8 +717,9 @@ PHP_FUNCTION(xdebug_start_code_coverage)
 			RETURN_FALSE;
 		}
 	} else if (!XG(code_coverage_func_only)) {
-		XG(do_code_coverage) = 1;
+		XG(vanilla_code_coverage) = 1;
 	}
+	XG(do_code_coverage) = 1;
 	RETURN_TRUE;
 }
 

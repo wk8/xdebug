@@ -193,6 +193,7 @@ ZEND_BEGIN_MODULE_GLOBALS(xdebug)
 	/* used for code coverage */
 	zend_bool     coverage_enable;
 	zend_bool     do_code_coverage;
+	zend_bool     vanilla_code_coverage;
 	xdebug_hash  *code_coverage;
 	zend_bool     code_coverage_unused;
 	zend_bool     code_coverage_dead_code_analysis;
@@ -207,6 +208,7 @@ ZEND_BEGIN_MODULE_GLOBALS(xdebug)
 	xdebug_extensible_string *extensible_buffer;
 	int                       zomphp_socket_fd;
 	zend_bool                 has_used_zomphp;
+	char                     *ongoing_func_name;
 
 	/* used for collection errors */
 	zend_bool     do_collect_errors;

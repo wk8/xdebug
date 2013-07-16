@@ -1124,10 +1124,11 @@ function_stack_entry *xdebug_add_stack_frame(zend_execute_data *zdata, zend_op_a
 		}
 	}
 
-	if (XG(do_code_coverage)) {
+	if (XG(vanilla_code_coverage)) {
 		xdebug_count_line(tmp->filename, tmp->lineno, 0, 0 TSRMLS_CC);
-	} else if (XG(code_coverage_func_only) || XG(code_coverage_zomphp)) {
-		xdebug_log_function_call(op_array->filename ? op_array->filename : NULL, op_array->function_name ? op_array->function_name : NULL, tmp->lineno);
+	} else if (XG(do_code_coverage) && op_array->function_name) {
+		// means it's either 'func only' or 'zomphp' mode, just remember what the function name was, and that's it
+		XG(ongoing_func_name) = xdstrdup(op_array->function_name); // TODO wkpo freed?
 	}
 
 	if (XG(profiler_aggregate)) {
