@@ -16,6 +16,9 @@
    +----------------------------------------------------------------------+
  */
 
+#include <limits.h>
+#include <math.h>
+
 #include "php_xdebug.h"
 #include "xdebug_private.h"
 #include "xdebug_set.h"
@@ -23,6 +26,7 @@
 #include "xdebug_code_coverage.h"
 #include "xdebug_compat.h"
 #include "xdebug_tracing.h"
+#include "xdebug_socket.h"
 
 extern ZEND_DECLARE_MODULE_GLOBALS(xdebug);
 
@@ -38,6 +42,23 @@ void xdebug_coverage_file_dtor(void *data)
 	xdebug_coverage_file *file = (xdebug_coverage_file *) data;
 
 	xdebug_hash_destroy(file->lines);
+	xdfree(file->name);
+	xdfree(file);
+}
+
+void xdebug_cc_func_only_func_dtor(void *data)
+{
+	xdebug_cc_func_only_func *func = (xdebug_cc_func_only_func *) data;
+
+	xdfree(func->name);
+	xdfree(func);
+}
+
+void xdebug_cc_func_only_file_dtor(void *data)
+{
+	xdebug_cc_func_only_file *file = (xdebug_cc_func_only_file *) data;
+
+	xdebug_hash_destroy(file->funcnames);
 	xdfree(file->name);
 	xdfree(file);
 }
@@ -306,7 +327,19 @@ void xdebug_count_line(char *filename, int lineno, int executable, int deadcode 
 	xdebug_coverage_file *file;
 	xdebug_coverage_line *line;
 
-	if (strcmp(XG(previous_filename), filename) == 0) {
+	if (!XG(vanilla_code_coverage)) {
+		// either 'func only' or 'zomphp' mode!
+		if (XG(ongoing_func_name)) {
+			xdebug_log_function_call(filename, XG(ongoing_func_name), lineno);
+			// cleanup
+			xdfree(XG(ongoing_func_name));
+			XG(ongoing_func_name) = NULL;
+		}
+		// no need to do the vanilla stuff
+		return;
+	}
+
+	if (XG(previous_file) && strcmp(XG(previous_file)->name, filename) == 0) {
 		file = XG(previous_file);
 	} else {
 		/* Check if the file already exists in the hash */
@@ -316,10 +349,9 @@ void xdebug_count_line(char *filename, int lineno, int executable, int deadcode 
 			file = xdmalloc(sizeof(xdebug_coverage_file));
 			file->name = xdstrdup(filename);
 			file->lines = xdebug_hash_alloc(128, xdebug_coverage_line_dtor);
-		
+
 			xdebug_hash_add(XG(code_coverage), filename, strlen(filename), file);
 		}
-		XG(previous_filename) = file->name;
 		XG(previous_file) = file;
 	}
 
@@ -342,6 +374,66 @@ void xdebug_count_line(char *filename, int lineno, int executable, int deadcode 
 	} else {
 		line->count++;
 	}
+}
+
+#define MAX_LINE_NB INT_MAX
+#define MAX_LINE_NB_LENGTH ((int) (ceil(log10(MAX_LINE_NB)) + 2))
+
+void xdebug_log_function_call(char *filename, char* funcname, int lineno)
+{
+	char same_file;
+	xdebug_cc_func_only_file *file;
+	xdebug_cc_func_only_func *func;
+	char lineno_buffer[MAX_LINE_NB_LENGTH];
+
+	if (filename == NULL || funcname == NULL) {
+		return;
+	}
+
+	if (XG(previous_file_func_only) && strcmp(XG(previous_file_func_only)->name, filename) == 0) {
+		file = XG(previous_file_func_only);
+		same_file = 1;
+	} else {
+		same_file = 0;
+		if (!xdebug_hash_find(XG(cc_func_only), filename, strlen(filename), (void*) &file)) {
+			file = xdmalloc(sizeof(xdebug_cc_func_only_file));
+			file->name = xdstrdup(filename);
+			file->funcnames = xdebug_hash_alloc(32, xdebug_cc_func_only_func_dtor);
+
+			xdebug_hash_add(XG(cc_func_only), filename, strlen(filename), file);
+		}
+		XG(previous_file_func_only) = file;
+	}
+
+	if (XG(previous_func) && strcmp(XG(previous_func)->name, funcname) == 0 && same_file) {
+		func = XG(previous_func);
+	} else {
+		if (!xdebug_hash_find(file->funcnames, funcname, strlen(funcname), (void*) &func)) {
+			func = xdmalloc(sizeof(xdebug_cc_func_only_func));
+			func->name = xdstrdup(funcname);
+			func->count = 0;
+
+			if (XG(code_coverage_zomphp)) {
+				// build the string to push : first the lineno buffer
+				if (lineno > MAX_LINE_NB) {
+					// er... shouldn't happen, but eh, let's not segfault
+					lineno = MAX_LINE_NB;
+				}
+				sprintf(lineno_buffer, "%d", lineno);
+				XG(extensible_buffer) = xdebug_extensible_strcat(XG(extensible_buffer), 6, filename, FUNC_NAME_DELIMITER, funcname, FUNC_NAME_DELIMITER, lineno_buffer, FUNCTION_DELIMITER);
+				// try to push it to the socket
+				if (!XG(extensible_buffer) || write_string_to_socket(XG(zomphp_socket_fd), XG(extensible_buffer)->data, NULL) < 0) {
+					// de-activate further calls for this request
+					XG(code_coverage_zomphp) = 0;
+				}
+			}
+
+			xdebug_hash_add(file->funcnames, funcname, strlen(funcname), func);
+		}
+		XG(previous_func) = func;
+	}
+
+	func->count++;
 }
 
 static void prefill_from_opcode(char *fn, zend_op opcode, int deadcode TSRMLS_DC)
@@ -588,12 +680,21 @@ void xdebug_prefill_code_coverage(zend_op_array *op_array TSRMLS_DC)
 PHP_FUNCTION(xdebug_start_code_coverage)
 {
 	long options = 0;
+	xdebug_socket_error* socket_error;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|l", &options) == FAILURE) {
 		return;
 	}
+
+	if (XG(code_coverage_unused) || XG(code_coverage_dead_code_analysis) || XG(do_code_coverage)) {
+		php_error(E_WARNING, "You can only use call xdebug_start_code_coverage once.");
+		RETURN_FALSE;
+	}
+
 	XG(code_coverage_unused) = (options & XDEBUG_CC_OPTION_UNUSED);
 	XG(code_coverage_dead_code_analysis) = (options & XDEBUG_CC_OPTION_DEAD_CODE);
+	XG(code_coverage_func_only) = (options & XDEBUG_CC_OPTION_FUNC_ONLY);
+	XG(code_coverage_zomphp) = (options & XDEBUG_CC_OPTION_ZOMPHP);
 
 	if (!XG(extended_info)) {
 		php_error(E_WARNING, "You can only use code coverage when you leave the setting of 'xdebug.extended_info' to the default '1'.");
@@ -601,12 +702,28 @@ PHP_FUNCTION(xdebug_start_code_coverage)
 	} else if (!XG(code_coverage)) {
 		php_error(E_WARNING, "Code coverage needs to be enabled in php.ini by setting 'xdebug.coverage_enable' to '1'.");
 		RETURN_FALSE;
-	} else {
-		XG(do_code_coverage) = 1;
-		RETURN_TRUE;
+	} else if (XG(code_coverage_zomphp)) {
+		// remember we've used ZomPHP, we'll try to shut our thread down when this SAPI dies
+		XG(has_used_zomphp) = 1;
+		socket_error = new_socket_error();
+		XG(zomphp_socket_fd) = get_socket(socket_error);
+		if (XG(zomphp_socket_fd) < 0 && socket_error && socket_error->has_error) {
+			php_error(E_WARNING, "%s", socket_error->error_msg->data);
+		}
+		free_socket_error(socket_error);
+		if (XG(zomphp_socket_fd) < 0) {
+			// deactivate, not gonna happen this time around
+			XG(code_coverage_zomphp) = 0;
+			RETURN_FALSE;
+		}
+	} else if (!XG(code_coverage_func_only)) {
+		XG(vanilla_code_coverage) = 1;
 	}
+	XG(do_code_coverage) = 1;
+	RETURN_TRUE;
 }
 
+// FIXME: ZomPHP does NOT support that!
 PHP_FUNCTION(xdebug_stop_code_coverage)
 {
 	long cleanup = 1;
@@ -616,7 +733,6 @@ PHP_FUNCTION(xdebug_stop_code_coverage)
 	}
 	if (XG(do_code_coverage)) {
 		if (cleanup) {
-			XG(previous_filename) = "";
 			XG(previous_file) = NULL;
 			xdebug_hash_destroy(XG(code_coverage));
 			XG(code_coverage) = xdebug_hash_alloc(32, xdebug_coverage_file_dtor);
@@ -676,10 +792,40 @@ static void add_file(void *ret, xdebug_hash_element *e)
 	add_assoc_zval_ex(retval, file->name, strlen(file->name) + 1, lines);
 }
 
+static void add_func(void *ret, xdebug_hash_element *e)
+{
+	xdebug_cc_func_only_func *func   = (xdebug_cc_func_only_func*) e->ptr;
+	zval                     *retval = (zval*) ret;
+
+	add_assoc_long(ret, func->name, func->count);
+}
+
+static void add_file_func_only(void *ret, xdebug_hash_element *e)
+{
+	xdebug_cc_func_only_file *file = (xdebug_cc_func_only_file*) e->ptr;
+	zval                     *retval = (zval*) ret;
+	zval                     *funcs;
+	TSRMLS_FETCH();
+
+	MAKE_STD_ZVAL(funcs);
+	array_init(funcs);
+
+	xdebug_hash_apply(file->funcnames, (void*) funcs, add_func);
+
+	add_assoc_zval_ex(retval, file->name, strlen(file->name) + 1, funcs);
+}
+
 PHP_FUNCTION(xdebug_get_code_coverage)
 {
 	array_init(return_value);
-	xdebug_hash_apply(XG(code_coverage), (void *) return_value, add_file);
+
+	if (XG(code_coverage_func_only)) {
+		xdebug_hash_apply(XG(cc_func_only), (void*) return_value, add_file_func_only);
+	} else if (XG(do_code_coverage)) {
+		xdebug_hash_apply(XG(code_coverage), (void *) return_value, add_file);
+	} else {
+		RETURN_FALSE;
+	}
 }
 
 PHP_FUNCTION(xdebug_get_function_count)

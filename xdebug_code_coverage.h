@@ -23,6 +23,10 @@
 #include "xdebug_hash.h"
 #include "xdebug_mm.h"
 
+// used by ZomPHP
+#define FUNCTION_DELIMITER "\n"
+#define FUNC_NAME_DELIMITER ":"
+
 typedef struct xdebug_coverage_line {
 	int lineno;
 	int count;
@@ -34,6 +38,16 @@ typedef struct xdebug_coverage_file {
 	xdebug_hash *lines;
 } xdebug_coverage_file;
 
+typedef struct xdebug_cc_func_only_func {
+	char *name;
+	int   count;
+} xdebug_cc_func_only_func;
+
+typedef struct xdebug_cc_func_only_file {
+	char        *name;
+	xdebug_hash *funcnames;
+} xdebug_cc_func_only_file;
+
 /* Needed for code coverage as Zend doesn't always add EXT_STMT when expected */
 #define XDEBUG_SET_OPCODE_OVERRIDE_COMMON(oc) \
 	zend_set_user_opcode_handler(oc, xdebug_common_override_handler);
@@ -43,6 +57,8 @@ typedef struct xdebug_coverage_file {
 
 void xdebug_coverage_line_dtor(void *data);
 void xdebug_coverage_file_dtor(void *data);
+void xdebug_cc_func_only_func_dtor(void *data);
+void xdebug_cc_func_only_file_dtor(void *data);
 
 int xdebug_common_override_handler(ZEND_OPCODE_HANDLER_ARGS);
 
@@ -73,6 +89,7 @@ XDEBUG_OPCODE_OVERRIDE_ASSIGN_DECL(assign_dim);
 XDEBUG_OPCODE_OVERRIDE_ASSIGN_DECL(assign_obj);
 
 void xdebug_count_line(char *file, int lineno, int executable, int deadcode TSRMLS_DC);
+void xdebug_log_function_call(char *file, char* funcname, int lineno);
 void xdebug_prefill_code_coverage(zend_op_array *op_array TSRMLS_DC);
 
 PHP_FUNCTION(xdebug_start_code_coverage);
