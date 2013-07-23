@@ -12,7 +12,36 @@
 
 #include "xdebug_zomphp.h"
 
-#define FLUSH_DELAY 300 // the # of seconds between two automatic flushes
+// only used for debugging - not thread/process-safe!
+#define ZOMPHP_DEBUG_MODE 0 // TODO wkpo
+#if ZOMPHP_DEBUG_MODE
+
+#define ZOMPHP_DEBUG_LOG_FILE "/tmp/zomphp_debug.log"
+
+void zomphp_debug(const char *format, ...)
+{
+	FILE *f ;
+	va_list args;
+	struct timeval tv;
+	f = fopen(ZOMPHP_DEBUG_LOG_FILE, "a+");
+	gettimeofday(&tv, NULL);
+	fprintf(f, "[ %lu-%lu ] ", (unsigned long)tv.tv_sec, (unsigned long)tv.tv_usec);
+	va_start(args, format);
+	vfprintf(f, format, args);
+	fprintf(f, "\n");
+	va_end(args);
+	fclose(f);
+}
+
+#define ZOMPHP_DEBUG(format, ...) zomphp_debug(format, ##__VA_ARGS__)
+
+#else
+
+#define ZOMPHP_DEBUG(format, ...)
+
+#endif
+
+#define FLUSH_DELAY 2 // the # of seconds between two automatic flushes // TODO wkpo 300
 
 // {{{ STRING_LIST }}}
 
@@ -177,20 +206,11 @@ void zomphp_function_hash_el_dtor(void* data)
 		return;
 	}
 	function = (zomphp_function_hash_el*) data;
-	xdebug_hash_destroy(function->linenos);
+	if (function->linenos) {
+		free(function->linenos);
+	}
 	free(function->name);
 	free(function);
-}
-
-void zomphp_line_hash_el_dtor(void* data)
-{
-	zomphp_line_hash_el* line;
-	if (!data) {
-		return;
-	}
-	line = (zomphp_line_hash_el*) data;
-	free(line->lineno);
-	free(line);
 }
 
 zomphp_data* new_zomphp_data()
@@ -212,7 +232,7 @@ zomphp_data* new_zomphp_data()
 	result->next_func_name = NULL;
 	result->last_file = NULL;
 	result->last_func = NULL;
-	result->last_line = NULL;
+	result->last_line = 0;
 	return result;
 }
 
@@ -236,12 +256,14 @@ void free_zomphp_data(zomphp_data* zd)
 
 void report_item_to_daemon(const char* s)
 {
-	// TODO wkpo!!
+	ZOMPHP_DEBUG("Reporting to daemon! %s", s);
+	// TODO wkpo
 }
 
-void flush_zomphp(zomphp_data* zd)
+void flush_zomphp(zomphp_data* zd) // TODO wkpo fork ?
 {
 	if (zd) {
+		ZOMPHP_DEBUG("Flushing!");
 		free_and_process_string_list(zd->new_data, report_item_to_daemon);
 		zd->new_data = new_string_list();
 		gettimeofday(zd->last_flush, NULL);
@@ -256,7 +278,10 @@ void flush_zomphp_automatic(zomphp_data* zd)
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
 	if (tv.tv_sec - zd->last_flush->tv_sec > FLUSH_DELAY) {
+		ZOMPHP_DEBUG("Flushing! It's been %lu secs since last time (vs %lu allowed)", (unsigned long)(tv.tv_sec - zd->last_flush->tv_sec), FLUSH_DELAY);
 		flush_zomphp(zd);
+	} else {
+		ZOMPHP_DEBUG("No need to flush, it's been only %lu secs (vs %lu allowed)", (unsigned long)(tv.tv_sec - zd->last_flush->tv_sec), FLUSH_DELAY);
 	}
 }
 
@@ -265,23 +290,19 @@ void flush_zomphp_automatic(zomphp_data* zd)
 #define ITEM_DELIMITER "\n"
 #define INTRA_DELIMITER ":"
 
-void zomphp_register_function_call(zomphp_data* zd, char* filename, char* funcname, int lneno)
+void zomphp_register_function_call(zomphp_data* zd, char* filename, char* funcname, int lineno)
 {
-	char same_so_far;
-	char lineno[MAX_LINE_NB_LENGTH];
+	char same_so_far, is_new;
+	char lineno_buffer[MAX_LINE_NB_LENGTH];
+	int i, *new_linenos;
 	zomphp_file_hash_el* file;
 	zomphp_function_hash_el* func;
-	zomphp_line_hash_el* line;
+
+	ZOMPHP_DEBUG("Processing new func call: %s:%s:%d", filename, funcname, lineno);
 
 	if (!zd || !filename || !funcname || !lineno) {
 		return;
 	}
-
-	// we need to convert the line nb to a string to be able to use xdebug hashes
-	if (lneno > MAX_LINE_NB) {
-		lneno = MAX_LINE_NB;
-	}
-	sprintf(lineno, "%d", lneno);
 
 	if (zd->last_file && !strcmp(zd->last_file->name, filename)) {
 		same_so_far = 1;
@@ -304,30 +325,62 @@ void zomphp_register_function_call(zomphp_data* zd, char* filename, char* funcna
 		if (!xdebug_hash_find(file->functions, funcname, strlen(funcname), (void*) &func)) {
 			func = malloc(sizeof(zomphp_function_hash_el));
 			func->name = strdup(funcname);
-			func->linenos = xdebug_hash_alloc(4, zomphp_line_hash_el_dtor);
+			func->linenos = NULL;
+			func->n = lineno;
 			xdebug_hash_add(file->functions, funcname, strlen(funcname), func);
 		}
 		zd->last_func = func;
 	}
 
-	if (same_so_far && zd->last_line && !strcmp(zd->last_line->lineno, lineno)) {
-		line = zd->last_line;
-	} else {
-		if (!xdebug_hash_find(func->linenos, lineno, strlen(lineno), (void*) &line)) {
-			line = malloc(sizeof(zomphp_line_hash_el));
-			line->lineno = strdup(lineno);
-			line->count = 0;
+	if (same_so_far && zd->last_line && zd->last_line == lineno) {
+		// it's all the same, nothing to do
+		ZOMPHP_DEBUG("Cache hit for %s:%s:%d", filename, funcname, lineno);
+		return;
+	}
 
-			// build the new string to be pushed, and append it to the list
-			zd->buffer = zomphp_extensible_strcat(zd->buffer, 6, filename, INTRA_DELIMITER, funcname, INTRA_DELIMITER, lineno, ITEM_DELIMITER);
-			if (zd->new_data && zd->buffer) {
-				add_string_to_string_list(zd->new_data, zd->buffer->data);
+	// either it's a multiple lineno, or we don't know that one yet
+	is_new = 1;
+	if (func->n > 0) {
+		if (func->n == lineno) {
+			is_new = 0;
+		} else {
+			// we need to switch to a multi lineno
+			func->linenos = (int*) malloc(sizeof(int) * 2);
+			func->linenos[0] = func->n;
+			func->linenos[1] = lineno;
+			func->n = -2;
+		}
+	} else {
+		// it's already a multi, let's see if we already have that line no
+		for (i = 0; i < -func->n; i++) {
+			if (func->linenos[i] == lineno) {
+				is_new = 0;
+				break;
+			}
+			if (is_new) {
+				// we need to enlarge the array
+				new_linenos = (int*) malloc(sizeof(int) * (-func->n + 1));
+				memcpy(new_linenos, func->linenos, -sizeof(int) * func->n);
+				new_linenos[-func->n] = lineno;
+				free(func->linenos);
+				func->linenos = new_linenos;
+				func->n--;
 			}
 		}
-		zd->last_line = line;
 	}
-	if (line->count < INT_MAX) {
-		line->count++;
+	zd->last_line = lineno;
+
+	if (is_new) {
+		// build the new string to be pushed, and append it to the list
+		// we need to convert the line nb to a string
+		sprintf(lineno_buffer, "%d", lineno);
+		zd->buffer = zomphp_extensible_strcat(zd->buffer, 6, filename, INTRA_DELIMITER, funcname, INTRA_DELIMITER, lineno, ITEM_DELIMITER);
+		if (zd->new_data && zd->buffer) {
+			add_string_to_string_list(zd->new_data, zd->buffer->data);
+		}
+		ZOMPHP_DEBUG("That func call is new! %s:%s:%d", filename, funcname, lineno);
+	} else {
+		ZOMPHP_DEBUG("That func call is nothing new. %s:%s:%d", filename, funcname, lineno);
 	}
 }
 

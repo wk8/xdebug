@@ -13,7 +13,7 @@
 
 // I admittedly could have re-used the xdebug_llist struct here, but I prefer to stay as largely independent from
 // modifs in the xdebug code as possible (plus what I needed here is way simpler, and more efficient that way...
-// and hopefully without bug!)
+// and hopefully without bugs!)
 typedef struct string_list_el {
 	char* data;
 	struct string_list_el* next;
@@ -52,15 +52,10 @@ void zomphp_file_hash_el_dtor(void* data);
 
 typedef struct zomphp_function_hash_el {
 	char* name;
-	xdebug_hash* linenos;
+	int n; // a line # if > 0, or an array length if < 0 (dirty, but economic...)
+	int* linenos;
 } zomphp_function_hash_el;
 void zomphp_function_hash_el_dtor(void* data);
-
-typedef struct zomphp_line_hash_el {
-	char* lineno;
-	int count;
-} zomphp_line_hash_el;
-void zomphp_line_hash_el_dtor(void* data);
 
 // contains all the data: the functions seen so far, the lines we need to push during the next flush,
 // and when the last flush was
@@ -72,7 +67,7 @@ typedef struct zomphp_data {
 
 	zomphp_file_hash_el* last_file;
 	zomphp_function_hash_el* last_func;
-	zomphp_line_hash_el* last_line;
+	int last_line;
 
 	zomphp_extensible_string* buffer;
 
@@ -81,7 +76,7 @@ typedef struct zomphp_data {
 
 zomphp_data* new_zomphp_data();
 void free_zomphp_data(zomphp_data* zd);
-void zomphp_register_function_call(zomphp_data* zd, char* filename, char* funcname, int lneno);
+void zomphp_register_function_call(zomphp_data* zd, char* filename, char* funcname, int lineno);
 void flush_zomphp(zomphp_data* zd);
 void flush_zomphp_automatic(zomphp_data* zd);
 void set_next_func_name(zomphp_data* zd, const char* funcname);
