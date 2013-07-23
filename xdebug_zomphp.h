@@ -30,7 +30,18 @@ void free_string_list(string_list* sl);
 void add_string(string_list* sl, const char* s);
 
 
-// helper structs for zomphp_data below
+// a magically extensible buffer
+typedef struct zomphp_extensible_string {
+	size_t current_length;
+	char*  data;
+} zomphp_extensible_string;
+
+zomphp_extensible_string* new_zomphp_extensible_string();
+void free_zomphp_extensible_string(zomphp_extensible_string* ext_string);
+zomphp_extensible_string* zomphp_extensible_strcat(zomphp_extensible_string* ext_string, const int nb_strings, ...);
+
+
+// helper hash structs for zomphp_data below
 typedef struct zomphp_file_hash_el {
 	char* name;
 	xdebug_hash* functions;
@@ -58,6 +69,8 @@ typedef struct zomphp_data {
 	zomphp_file_hash_el* last_file;
 	zomphp_function_hash_el* last_func;
 	zomphp_line_hash_el* last_line;
+
+	zomphp_extensible_string* buffer;
 	// TODO wkpo last purge, and purge
 } zomphp_data;
 

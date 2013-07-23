@@ -7,6 +7,7 @@
 #include <string.h>
 #include <limits.h>
 #include <math.h>
+#include <stdarg.h>
 
 #include "xdebug_zomphp.h"
 
@@ -80,6 +81,81 @@ void add_string(string_list* sl, const char* s)
 // {{{ END OF STRING_LIST }}}
 
 
+// {{{ ZOMPHP_EXTENSIBLE_STRING }}}
+
+#define ZOMPHP_EXTENSIBLE_STRING_DELTA_INCR 100
+
+zomphp_extensible_string* zomphp_extensible_strcat(zomphp_extensible_string* ext_string, const int nb_strings, ...)
+{
+	va_list args;
+	char *current_string, *buffer;
+	size_t current_pos, current_length;
+	int i;
+
+	if (!ext_string) {
+		return NULL;
+	}
+
+	va_start(args, nb_strings);
+	current_pos = 0;
+	for (i = 0; i != nb_strings; i++) {
+		current_string = va_arg(args, char*);
+		current_length = strlen(current_string);
+		if (current_pos + current_length >= ext_string->current_length) {
+			// we need to make the container bigger!
+			ext_string->current_length += current_length > ZOMPHP_EXTENSIBLE_STRING_DELTA_INCR ? current_length : ZOMPHP_EXTENSIBLE_STRING_DELTA_INCR;
+			buffer = (char*) malloc(sizeof(char) * ext_string->current_length);
+			if (!buffer) {
+				// not enough RAM, we're done with that thing
+				free_zomphp_extensible_string(ext_string);
+				return NULL;
+			}
+			// copy everything up to that point
+			memcpy(buffer, ext_string->data, sizeof(char) * current_pos);
+			// and make that the new data
+			free(ext_string->data);
+			ext_string->data = buffer;
+		}
+		memcpy(ext_string->data + current_pos, current_string, current_length * sizeof(char));
+		current_pos += current_length;
+	}
+	memcpy(ext_string->data + current_pos, "\0", sizeof(char));
+	va_end(args);
+
+	return ext_string;
+}
+
+zomphp_extensible_string* new_zomphp_extensible_string()
+{
+	zomphp_extensible_string* result;
+	char* data;
+
+	result = (zomphp_extensible_string*) malloc(sizeof(zomphp_extensible_string));
+	data = (char*) malloc(sizeof(char) * ZOMPHP_EXTENSIBLE_STRING_DELTA_INCR);
+
+	if (!result || !data) {
+		if (result) {
+			free(result);
+		}
+		return NULL;
+	}
+
+	result->data = data;
+	result->current_length = ZOMPHP_EXTENSIBLE_STRING_DELTA_INCR;
+	return result;
+}
+
+void free_zomphp_extensible_string(zomphp_extensible_string* ext_string)
+{
+	if (ext_string) {
+		free(ext_string->data);
+		free(ext_string);
+	}
+}
+
+// {{{ END OF ZOMPHP_EXTENSIBLE_STRING }}}
+
+
 // {{{ ZOMPHP_DATA }}}
 
 void zomphp_file_hash_el_dtor(void* data)
@@ -126,7 +202,8 @@ zomphp_data* new_zomphp_data()
 	}
 	result->files = xdebug_hash_alloc(32768, zomphp_file_hash_el_dtor);
 	result->new_data = new_string_list();
-	if (!result->files || !result->new_data) {
+	result->buffer = new_zomphp_extensible_string();
+	if (!result->files || !result->new_data || !result->buffer) {
 		free_zomphp_data(result);
 		return NULL;
 	}
@@ -143,6 +220,7 @@ void free_zomphp_data(zomphp_data* zd)
 			xdebug_hash_destroy(zd->files);
 		}
 		free_string_list(zd->new_data);
+		free_zomphp_extensible_string(zd->buffer);
 		free(zd);
 	}
 }
