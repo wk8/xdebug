@@ -26,6 +26,7 @@ typedef void (*process_string)(const char* s);
 
 string_list* new_string_list();
 void free_and_process_string_list(string_list* sl, process_string func);
+void free_string_list(string_list* sl);
 void add_string(string_list* sl, const char* s);
 
 
@@ -54,12 +55,14 @@ typedef struct zomphp_data {
 	xdebug_hash* files;
 	string_list* new_data;
 
-	zomphp_file_hash_el* last_file; // TODO wkpo set to NULL
-	zomphp_function_hash_el* last_func; // TODO wkpo same
-	zomphp_line_hash_el* last_line; // TODO wkpo same
+	zomphp_file_hash_el* last_file;
+	zomphp_function_hash_el* last_func;
+	zomphp_line_hash_el* last_line;
 	// TODO wkpo last purge, and purge
 } zomphp_data;
 
+zomphp_data* new_zomphp_data();
+void free_zomphp_data(zomphp_data* zd);
 void zomphp_register_function_call(zomphp_data* zd, char* filename, char* funcname, int lneno);
 
 #endif

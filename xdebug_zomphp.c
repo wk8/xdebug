@@ -45,6 +45,11 @@ void free_and_process_string_list(string_list* sl, process_string func)
 	}
 }
 
+void free_string_list(string_list* sl)
+{
+	free_and_process_string_list(sl, NULL);
+}
+
 void add_string(string_list* sl, const char* s)
 {
 	string_list_el* new_el;
@@ -110,6 +115,36 @@ void zomphp_line_hash_el_dtor(void* data)
 	line = (zomphp_line_hash_el*) data;
 	free(line->lineno);
 	free(line);
+}
+
+zomphp_data* new_zomphp_data()
+{
+	zomphp_data* result;
+	result = (zomphp_data*) malloc(sizeof(zomphp_data));
+	if (!result) {
+		return NULL;
+	}
+	result->files = xdebug_hash_alloc(32768, zomphp_file_hash_el_dtor);
+	result->new_data = new_string_list();
+	if (!result->files || !result->new_data) {
+		free_zomphp_data(result);
+		return NULL;
+	}
+	result->last_file = NULL;
+	result->last_func = NULL;
+	result->last_line = NULL;
+	return result;
+}
+
+void free_zomphp_data(zomphp_data* zd)
+{
+	if (zd) {
+		if (zd->files) {
+			xdebug_hash_destroy(zd->files);
+		}
+		free_string_list(zd->new_data);
+		free(zd);
+	}
 }
 
 #define MAX_LINE_NB INT_MAX
