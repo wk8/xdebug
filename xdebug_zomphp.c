@@ -4,6 +4,7 @@
  */
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <limits.h>
 #include <math.h>
@@ -251,7 +252,7 @@ void zomphp_register_function_call(zomphp_data* zd, char* filename, char* funcna
 		file = zd->last_file;
 	} else {
 		same_so_far = 0;
-		if (!xdebug_hash_find(zd->files), filename, strlen(filename), (void*) &file) {
+		if (!xdebug_hash_find(zd->files, filename, strlen(filename), (void*) &file)) {
 			file = malloc(sizeof(zomphp_file_hash_el));
 			file->name = strdup(filename);
 			file->functions = xdebug_hash_alloc(32, zomphp_function_hash_el_dtor);
