@@ -5,10 +5,13 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
+#include <math.h>
 
 #include "xdebug_zomphp.h"
 
 #include <sys/time.h> // TODO wkpo
+
 
 // {{{ STRING_LIST }}}
 
@@ -69,11 +72,111 @@ void add_string(string_list* sl, const char* s)
 	}
 }
 
-
 // {{{ END OF STRING_LIST }}}
 
 
+// {{{ ZOMPHP_DATA }}}
 
+void zomphp_file_hash_el_dtor(void* data)
+{
+	zomphp_file_hash_el *file;
+	if (!data) {
+		return;
+	}
+	file = (zomphp_file_hash_el*) data;
+	xdebug_hash_destroy(file->functions);
+	free(file->name);
+	free(file);
+}
+
+void zomphp_function_hash_el_dtor(void* data)
+{
+	zomphp_function_hash_el* function;
+	if (!data) {
+		return;
+	}
+	function = (zomphp_function_hash_el*) data;
+	xdebug_hash_destroy(function->linenos);
+	free(function->name);
+	free(function);
+}
+
+void zomphp_line_hash_el_dtor(void* data)
+{
+	zomphp_line_hash_el* line;
+	if (!data) {
+		return;
+	}
+	line = (zomphp_line_hash_el*) data;
+	free(line->lineno);
+	free(line);
+}
+
+#define MAX_LINE_NB INT_MAX
+#define MAX_LINE_NB_LENGTH ((int) (ceil(log10(MAX_LINE_NB)) + 2))
+
+void zomphp_register_function_call(zomphp_data* zd, char* filename, char* funcname, int lneno)
+{
+	char same_so_far;
+	char lineno[MAX_LINE_NB_LENGTH];
+	zomphp_file_hash_el* file;
+	zomphp_function_hash_el* func;
+	zomphp_line_hash_el* line;
+
+	if (!zd || !filename || !funcname || !lineno) {
+		return;
+	}
+
+	// we need to convert the line nb to a string to be able to use xdebug hashes
+	if (lneno > MAX_LINE_NB) {
+		lneno = MAX_LINE_NB;
+	}
+	sprintf(lineno, "%d", lneno);
+
+	if (zd->last_file && !strcmp(zd->last_file->name, filename)) {
+		same_so_far = 1;
+		file = zd->last_file;
+	} else {
+		same_so_far = 0;
+		if (!xdebug_hash_find(zd->files), filename, strlen(filename), (void*) &file) {
+			file = malloc(sizeof(zomphp_file_hash_el));
+			file->name = strdup(filename);
+			file->functions = xdebug_hash_alloc(32, zomphp_function_hash_el_dtor);
+			xdebug_hash_add(zd->files, filename, strlen(filename), file);
+		}
+		zd->last_file = file;
+	}
+
+	if (same_so_far && zd->last_func && !strcmp(zd->last_func->name, funcname)) {
+		func = zd->last_func;
+	} else {
+		same_so_far = 0;
+		if (!xdebug_hash_find(file->functions, funcname, strlen(funcname), (void*) &func)) {
+			func = malloc(sizeof(zomphp_function_hash_el));
+			func->name = strdup(funcname);
+			func->linenos = xdebug_hash_alloc(4, zomphp_line_hash_el_dtor);
+			xdebug_hash_add(file->functions, funcname, strlen(funcname), func);
+		}
+		zd->last_func = func;
+	}
+
+	if (same_so_far && zd->last_line && !strcmp(zd->last_line->lineno, lineno)) {
+		line = zd->last_line;
+	} else {
+		if (!xdebug_hash_find(func->linenos, lineno, strlen(lineno), (void*) &line)) {
+			line = malloc(sizeof(zomphp_line_hash_el));
+			line->lineno = strdup(lineno);
+			line->count = 0;
+			if (zd->new_data) {
+				// TODO wkpo construire et pusher le new string
+			}
+		}
+		zd->last_line = line;
+	}
+	line->count++;
+}
+
+// {{{ END OF ZOMPHP_DATA }}}
 
 // TODO wkpo
 
