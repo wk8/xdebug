@@ -301,6 +301,7 @@ PHP_INI_END()
 
 static void php_xdebug_init_globals (zend_xdebug_globals *xg TSRMLS_DC)
 {
+	ZOMPHP_DEBUG("On est dans init globals");
 	xg->stack                = NULL;
 	xg->level                = 0;
 	xg->do_trace             = 0;
@@ -309,6 +310,8 @@ static void php_xdebug_init_globals (zend_xdebug_globals *xg TSRMLS_DC)
 	xg->previous_filename    = "";
 	xg->previous_file        = NULL;
 	xg->do_code_coverage     = 0;
+	xg->zomphp               = NULL;
+	xg->do_zomphp_cc         = 0;
 	xg->breakpoint_count     = 0;
 	xg->ide_key              = NULL;
 	xg->output_is_tty        = OUTPUT_NOT_CHECKED;
@@ -686,6 +689,7 @@ PHP_MINIT_FUNCTION(xdebug)
 
 	REGISTER_LONG_CONSTANT("XDEBUG_CC_UNUSED", XDEBUG_CC_OPTION_UNUSED, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("XDEBUG_CC_DEAD_CODE", XDEBUG_CC_OPTION_DEAD_CODE, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("XDEBUG_CC_ZOMPHP", XDEBUG_CC_OPTION_ZOMPHP, CONST_CS | CONST_PERSISTENT);
 
 	XG(breakpoint_count) = 0;
 	XG(output_is_tty) = OUTPUT_NOT_CHECKED;
@@ -974,10 +978,12 @@ ZEND_MODULE_POST_ZEND_DEACTIVATE_D(xdebug)
 		XG(ide_key) = NULL;
 	}
 
+	ZOMPHP_DEBUG("On est dans post zend deactivate"); // TODO wkpo
 	XG(level)            = 0;
 	XG(do_trace)         = 0;
 	XG(coverage_enable)  = 0;
 	XG(do_code_coverage) = 0;
+	XG(do_zomphp_cc)     = 0;
 
 	xdebug_hash_destroy(XG(code_coverage));
 	XG(code_coverage) = NULL;

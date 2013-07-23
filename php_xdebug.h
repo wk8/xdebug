@@ -33,6 +33,7 @@
 #include "xdebug_hash.h"
 #include "xdebug_llist.h"
 #include "xdebug_code_coverage.h"
+#include "xdebug_zomphp.h"
 
 extern zend_module_entry xdebug_module_entry;
 #define phpext_xdebug_ptr &xdebug_module_entry
@@ -199,6 +200,8 @@ ZEND_BEGIN_MODULE_GLOBALS(xdebug)
 	int           reserved_offset;
 	char                 *previous_filename;
 	xdebug_coverage_file *previous_file;
+	zomphp_data  *zomphp;
+	zend_bool     do_zomphp_cc;
 
 	/* used for collection errors */
 	zend_bool     do_collect_errors;

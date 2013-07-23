@@ -9,6 +9,7 @@
 #include <limits.h>
 #include <math.h>
 #include <stdarg.h>
+#include <unistd.h>
 
 #include "xdebug_zomphp.h"
 
@@ -25,7 +26,7 @@ void zomphp_debug(const char *format, ...)
 	struct timeval tv;
 	f = fopen(ZOMPHP_DEBUG_LOG_FILE, "a+");
 	gettimeofday(&tv, NULL);
-	fprintf(f, "[ %lu-%lu ] ", (unsigned long)tv.tv_sec, (unsigned long)tv.tv_usec);
+	fprintf(f, "[ %lu-%lu (%d)] ", (unsigned long)tv.tv_sec, (unsigned long)tv.tv_usec, (int) getpid());
 	va_start(args, format);
 	vfprintf(f, format, args);
 	fprintf(f, "\n");
