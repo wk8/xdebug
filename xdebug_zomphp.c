@@ -52,7 +52,7 @@ void free_string_list(string_list* sl)
 	free_and_process_string_list(sl, NULL);
 }
 
-void add_string(string_list* sl, const char* s)
+void add_string_to_string_list(string_list* sl, const char* s)
 {
 	string_list_el* new_el;
 	char* data;
@@ -228,6 +228,8 @@ void free_zomphp_data(zomphp_data* zd)
 
 #define MAX_LINE_NB INT_MAX
 #define MAX_LINE_NB_LENGTH ((int) (ceil(log10(MAX_LINE_NB)) + 2))
+#define ITEM_DELIMITER "\n"
+#define INTRA_DELIMITER ":"
 
 void zomphp_register_function_call(zomphp_data* zd, char* filename, char* funcname, int lneno)
 {
@@ -281,37 +283,18 @@ void zomphp_register_function_call(zomphp_data* zd, char* filename, char* funcna
 			line = malloc(sizeof(zomphp_line_hash_el));
 			line->lineno = strdup(lineno);
 			line->count = 0;
-			if (zd->new_data) {
-				// TODO wkpo construire et pusher le new string
+
+			// build the new string to be pushed, and append it to the list
+			zd->buffer = zomphp_extensible_strcat(zd->buffer, 6, filename, INTRA_DELIMITER, funcname, INTRA_DELIMITER, lineno, ITEM_DELIMITER);
+			if (zd->new_data && zd->buffer) {
+				add_string_to_string_list(zd->new_data, zd->buffer->data);
 			}
 		}
 		zd->last_line = line;
 	}
-	line->count++;
+	if (line->count < INT_MAX) {
+		line->count++;
+	}
 }
 
 // {{{ END OF ZOMPHP_DATA }}}
-
-// TODO wkpo
-
-#include <stdio.h>
-void just_print(const char* s) {
-	printf("El: %s\n", s);
-}
-
-void test_sl()
-{
-	string_list* sl = new_string_list();
-	add_string(sl, "coucou");
-	add_string(sl, "wk");
-	add_string(sl, "po");
-	free_and_process_string_list(sl, just_print);
-	// free_and_process_string_list(sl, NULL);
-}
-
-int main()
-{
-	// test_sl();
-	return 0;
-}
-

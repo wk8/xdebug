@@ -27,7 +27,7 @@ typedef void (*process_string)(const char* s);
 string_list* new_string_list();
 void free_and_process_string_list(string_list* sl, process_string func);
 void free_string_list(string_list* sl);
-void add_string(string_list* sl, const char* s);
+void add_string_to_string_list(string_list* sl, const char* s);
 
 
 // a magically extensible buffer
