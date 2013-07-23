@@ -209,6 +209,7 @@ zomphp_data* new_zomphp_data()
 		return NULL;
 	}
 	gettimeofday(result->last_flush, NULL);
+	result->next_func_name = NULL;
 	result->last_file = NULL;
 	result->last_func = NULL;
 	result->last_line = NULL;
@@ -223,6 +224,9 @@ void free_zomphp_data(zomphp_data* zd)
 		}
 		if (zd->last_flush) {
 			free(zd->last_flush);
+		}
+		if (zd->next_func_name) {
+			free(zd->next_func_name);
 		}
 		free_string_list(zd->new_data);
 		free_zomphp_extensible_string(zd->buffer);
@@ -324,6 +328,26 @@ void zomphp_register_function_call(zomphp_data* zd, char* filename, char* funcna
 	}
 	if (line->count < INT_MAX) {
 		line->count++;
+	}
+}
+
+void set_next_func_name(zomphp_data* zd, const char* funcname)
+{
+	if (zd) {
+		if (zd->next_func_name) {
+			// shouldn't happen, but let's avoid mem leaks...
+			free(zd->next_func_name);
+		}
+		zd->next_func_name = strdup(funcname);
+	}
+}
+
+void zomphp_register_line_call(zomphp_data* zd, char* filename, int lneno)
+{
+	if (zd && zd->next_func_name) {
+		zomphp_register_function_call(zd, filename, zd->next_func_name, lneno);
+		free(zd->next_func_name);
+		zd->next_func_name = NULL;
 	}
 }
 
