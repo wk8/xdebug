@@ -6,6 +6,8 @@
 #ifndef __HAVE_XDEBUG_ZOMPHP_H__
 #define __HAVE_XDEBUG_ZOMPHP_H__
 
+#include <sys/time.h>
+
 #include "xdebug_hash.h"
 
 
@@ -60,8 +62,8 @@ typedef struct zomphp_line_hash_el {
 } zomphp_line_hash_el;
 void zomphp_line_hash_el_dtor(void* data);
 
-// contains all the data: the functions seen so far, the lines we need to push during the next purge,
-// and when the last purge was
+// contains all the data: the functions seen so far, the lines we need to push during the next flush,
+// and when the last flush was
 typedef struct zomphp_data {
 	xdebug_hash* files;
 	string_list* new_data;
@@ -71,11 +73,14 @@ typedef struct zomphp_data {
 	zomphp_line_hash_el* last_line;
 
 	zomphp_extensible_string* buffer;
-	// TODO wkpo last purge, and purge
+
+	struct timeval* last_flush;
 } zomphp_data;
 
 zomphp_data* new_zomphp_data();
 void free_zomphp_data(zomphp_data* zd);
 void zomphp_register_function_call(zomphp_data* zd, char* filename, char* funcname, int lneno);
+void flush_zomphp(zomphp_data* zd);
+void flush_zomphp_automatic(zomphp_data* zd);
 
 #endif

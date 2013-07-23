@@ -12,8 +12,7 @@
 
 #include "xdebug_zomphp.h"
 
-#include <sys/time.h> // TODO wkpo
-
+#define FLUSH_DELAY 300 // the # of seconds between two automatic flushes
 
 // {{{ STRING_LIST }}}
 
@@ -204,10 +203,12 @@ zomphp_data* new_zomphp_data()
 	result->files = xdebug_hash_alloc(32768, zomphp_file_hash_el_dtor);
 	result->new_data = new_string_list();
 	result->buffer = new_zomphp_extensible_string();
-	if (!result->files || !result->new_data || !result->buffer) {
+	result->last_flush = (struct timeval*) malloc(sizeof(struct timeval));
+	if (!result->files || !result->new_data || !result->buffer || !result->last_flush) {
 		free_zomphp_data(result);
 		return NULL;
 	}
+	gettimeofday(result->last_flush, NULL);
 	result->last_file = NULL;
 	result->last_func = NULL;
 	result->last_line = NULL;
@@ -220,9 +221,38 @@ void free_zomphp_data(zomphp_data* zd)
 		if (zd->files) {
 			xdebug_hash_destroy(zd->files);
 		}
+		if (zd->last_flush) {
+			free(zd->last_flush);
+		}
 		free_string_list(zd->new_data);
 		free_zomphp_extensible_string(zd->buffer);
 		free(zd);
+	}
+}
+
+void report_item_to_daemon(const char* s)
+{
+	// TODO wkpo!!
+}
+
+void flush_zomphp(zomphp_data* zd)
+{
+	if (zd) {
+		free_and_process_string_list(zd->new_data, report_item_to_daemon);
+		zd->new_data = new_string_list();
+		gettimeofday(zd->last_flush, NULL);
+	}
+}
+
+void flush_zomphp_automatic(zomphp_data* zd)
+{
+	if (!zd) {
+		return;
+	}
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	if (tv.tv_sec - zd->last_flush->tv_sec > FLUSH_DELAY) {
+		flush_zomphp(zd);
 	}
 }
 
