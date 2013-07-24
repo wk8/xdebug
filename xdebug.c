@@ -301,7 +301,7 @@ PHP_INI_END()
 
 static void php_xdebug_init_globals (zend_xdebug_globals *xg TSRMLS_DC)
 {
-	ZOMPHP_DEBUG("On est dans init globals");
+	// ZOMPHP_DEBUG("On est dans init globals"); // TODO wkpo
 	xg->stack                = NULL;
 	xg->level                = 0;
 	xg->do_trace             = 0;
@@ -978,7 +978,7 @@ ZEND_MODULE_POST_ZEND_DEACTIVATE_D(xdebug)
 		XG(ide_key) = NULL;
 	}
 
-	ZOMPHP_DEBUG("On est dans post zend deactivate"); // TODO wkpo
+	// ZOMPHP_DEBUG("On est dans post zend deactivate"); // TODO wkpo
 	XG(level)            = 0;
 	XG(do_trace)         = 0;
 	XG(coverage_enable)  = 0;
