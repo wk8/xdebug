@@ -13,8 +13,6 @@
 
 #include "xdebug_zomphp.h"
 
-// only used for debugging - not thread/process-safe!
-#define ZOMPHP_DEBUG_MODE 0 // TODO wkpo
 #if ZOMPHP_DEBUG_MODE
 
 #define ZOMPHP_DEBUG_LOG_FILE "/tmp/zomphp_debug.log"
@@ -33,12 +31,6 @@ void zomphp_debug(const char *format, ...)
 	va_end(args);
 	fclose(f);
 }
-
-#define ZOMPHP_DEBUG(format, ...) zomphp_debug(format, ##__VA_ARGS__)
-
-#else
-
-#define ZOMPHP_DEBUG(format, ...)
 
 #endif
 

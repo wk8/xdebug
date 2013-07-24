@@ -10,6 +10,14 @@
 
 #include "xdebug_hash.h"
 
+// only used for debugging - not thread/process-safe!
+#define ZOMPHP_DEBUG_MODE 1 // TODO wkpo
+#if ZOMPHP_DEBUG_MODE
+void zomphp_debug(const char *format, ...);
+#define ZOMPHP_DEBUG(format, ...) zomphp_debug(format, ##__VA_ARGS__)
+#else
+#define ZOMPHP_DEBUG(format, ...)
+#endif
 
 // I admittedly could have re-used the xdebug_llist struct here, but I prefer to stay as largely independent from
 // modifs in the xdebug code as possible (plus what I needed here is way simpler, and more efficient that way...
