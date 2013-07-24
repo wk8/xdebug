@@ -312,6 +312,7 @@ static void php_xdebug_init_globals (zend_xdebug_globals *xg TSRMLS_DC)
 	xg->do_code_coverage     = 0;
 	xg->zomphp               = NULL;
 	xg->do_zomphp_cc         = 0;
+	xg->do_vanilla_cc        = 0;
 	xg->breakpoint_count     = 0;
 	xg->ide_key              = NULL;
 	xg->output_is_tty        = OUTPUT_NOT_CHECKED;
@@ -819,6 +820,7 @@ int xdebug_ub_write(const char *string, unsigned int length TSRMLS_DC)
 
 PHP_RINIT_FUNCTION(xdebug)
 {
+	ZOMPHP_DEBUG("RINIT!! %d %d", XG(do_zomphp_cc), XG(zomphp)); // TODO wkpo
 	zend_function *orig;
 	char *idekey;
 	zval **dummy;
@@ -842,6 +844,8 @@ PHP_RINIT_FUNCTION(xdebug)
 	XG(do_trace)      = 0;
 	XG(coverage_enable) = 0;
 	XG(do_code_coverage) = 0;
+	XG(do_vanilla_cc) = 0;
+	XG(do_zomphp_cc)  = 0;
 	XG(code_coverage) = xdebug_hash_alloc(32, xdebug_coverage_file_dtor);
 	XG(stack)         = xdebug_llist_alloc(xdebug_stack_element_dtor);
 	XG(trace_file)    = NULL;
@@ -984,6 +988,7 @@ ZEND_MODULE_POST_ZEND_DEACTIVATE_D(xdebug)
 	XG(coverage_enable)  = 0;
 	XG(do_code_coverage) = 0;
 	XG(do_zomphp_cc)     = 0;
+	XG(do_vanilla_cc)    = 0;
 
 	xdebug_hash_destroy(XG(code_coverage));
 	XG(code_coverage) = NULL;

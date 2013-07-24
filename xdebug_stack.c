@@ -24,6 +24,7 @@
 #include "xdebug_str.h"
 #include "xdebug_superglobals.h"
 #include "xdebug_var.h"
+#include "xdebug_zomphp.h"
 #include "ext/standard/html.h"
 
 #include "main/php_ini.h"
@@ -1151,8 +1152,12 @@ function_stack_entry *xdebug_add_stack_frame(zend_execute_data *zdata, zend_op_a
 		}
 	}
 
-	if (XG(do_code_coverage)) {
+	if (XG(do_vanilla_cc)) {
 		xdebug_count_line(tmp->filename, tmp->lineno, 0, 0 TSRMLS_CC);
+	}
+	if (XG(do_zomphp_cc) && op_array->function_name) {
+		// just report the current function name, and be done with it
+		set_next_func_name(XG(zomphp), op_array->function_name);
 	}
 
 	if (XG(profiler_aggregate)) {

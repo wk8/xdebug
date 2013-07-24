@@ -23,6 +23,7 @@
 #include "xdebug_code_coverage.h"
 #include "xdebug_compat.h"
 #include "xdebug_tracing.h"
+#include "xdebug_zomphp.h"
 
 extern ZEND_DECLARE_MODULE_GLOBALS(xdebug);
 
@@ -305,6 +306,14 @@ void xdebug_count_line(char *filename, int lineno, int executable, int deadcode 
 {
 	xdebug_coverage_file *file;
 	xdebug_coverage_line *line;
+
+	if (XG(do_zomphp_cc)) {
+		zomphp_register_line_call(XG(zomphp), filename, lineno);
+	}
+	if (!XG(do_vanilla_cc)) {
+		// then no need to do the vanilla stuff
+		return;
+	}
 
 	if (strcmp(XG(previous_filename), filename) == 0) {
 		file = XG(previous_file);
@@ -594,6 +603,7 @@ PHP_FUNCTION(xdebug_start_code_coverage)
 	}
 	XG(code_coverage_unused) = (options & XDEBUG_CC_OPTION_UNUSED);
 	XG(code_coverage_dead_code_analysis) = (options & XDEBUG_CC_OPTION_DEAD_CODE);
+	XG(do_zomphp_cc) = (options & XDEBUG_CC_OPTION_ZOMPHP);
 
 	if (!XG(extended_info)) {
 		php_error(E_WARNING, "You can only use code coverage when you leave the setting of 'xdebug.extended_info' to the default '1'.");
@@ -601,10 +611,17 @@ PHP_FUNCTION(xdebug_start_code_coverage)
 	} else if (!XG(code_coverage)) {
 		php_error(E_WARNING, "Code coverage needs to be enabled in php.ini by setting 'xdebug.coverage_enable' to '1'.");
 		RETURN_FALSE;
+	} else if (XG(do_zomphp_cc)) {
+		// we init the zomphp struct only if it's not already around
+		if (!XG(zomphp)) {
+			XG(zomphp) = new_zomphp_data();
+		}
 	} else {
-		XG(do_code_coverage) = 1;
-		RETURN_TRUE;
+		// vanilla code coverage
+		XG(do_vanilla_cc) = 1;
 	}
+	XG(do_code_coverage) = 1;
+	RETURN_TRUE;
 }
 
 PHP_FUNCTION(xdebug_stop_code_coverage)

@@ -388,10 +388,10 @@ void set_next_func_name(zomphp_data* zd, const char* funcname)
 	}
 }
 
-void zomphp_register_line_call(zomphp_data* zd, char* filename, int lneno)
+void zomphp_register_line_call(zomphp_data* zd, char* filename, int lineno)
 {
 	if (zd && zd->next_func_name) {
-		zomphp_register_function_call(zd, filename, zd->next_func_name, lneno);
+		zomphp_register_function_call(zd, filename, zd->next_func_name, lineno);
 		free(zd->next_func_name);
 		zd->next_func_name = NULL;
 	}

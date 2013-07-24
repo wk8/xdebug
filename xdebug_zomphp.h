@@ -88,6 +88,6 @@ void zomphp_register_function_call(zomphp_data* zd, char* filename, char* funcna
 void flush_zomphp(zomphp_data* zd);
 void flush_zomphp_automatic(zomphp_data* zd);
 void set_next_func_name(zomphp_data* zd, const char* funcname);
-void zomphp_register_line_call(zomphp_data* zd, char* filename, int lneno);
+void zomphp_register_line_call(zomphp_data* zd, char* filename, int lineno);
 
 #endif

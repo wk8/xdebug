@@ -202,6 +202,7 @@ ZEND_BEGIN_MODULE_GLOBALS(xdebug)
 	xdebug_coverage_file *previous_file;
 	zomphp_data  *zomphp;
 	zend_bool     do_zomphp_cc;
+	zend_bool     do_vanilla_cc;
 
 	/* used for collection errors */
 	zend_bool     do_collect_errors;
