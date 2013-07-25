@@ -72,6 +72,7 @@ int free_and_process_string_list(string_list* sl, process_string func, void* fun
 			if (func) {
 				result = func(current->data, func_additional_arg);
 				if (result != 0) {
+					ZOMPHP_DEBUG("Something went wrong when processing list string");
 					// something went wrong, we stop here
 					sl->head = current;
 					return result;
@@ -272,8 +273,7 @@ int report_item_to_daemon(const char* s, void* socket_fd)
 {
 	int* sfd = (int*) socket_fd;
 	ZOMPHP_DEBUG("Reporting to daemon! %s (to socket_fd %d)", s, *sfd);
-	return 0; // TODO wkpo
-	return write_string_to_socket(*sfd, s) < 0 ? -1 : 0;
+	return write_string_to_socket(*sfd, s) == -1 ? -1 : 0;
 }
 
 // returns 0 iff we don't need to give up just yet
@@ -510,6 +510,7 @@ int get_zomphp_socket_fd(zomphp_socket_error* error)
 
 	socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (socket_fd < 0) {
+		ZOMPHP_DEBUG("Could not create socket");
 		report_error("Could not create socket ", error);
 		return SOCKET_NOT_CREATED;
 	}
@@ -518,6 +519,7 @@ int get_zomphp_socket_fd(zomphp_socket_error* error)
 	memcpy(serv_addr.sun_path, ZOMPHP_SOCKET_PATH, sizeof(char) * (strlen(ZOMPHP_SOCKET_PATH) + 1)); // +1 for the terminating char // TODO wkpo sun.path = ZOMPHP_SOCKET_PATH; ??
 
 	if (connect(socket_fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
+		ZOMPHP_DEBUG("Could not connect to socket");
 		report_error("Could not connect to socket ", error);
 		return COULD_NOT_CONNECT_TO_SOCKET;
 	}
@@ -525,7 +527,7 @@ int get_zomphp_socket_fd(zomphp_socket_error* error)
 	return socket_fd;
 }
 
-// returns < 0 if any error
+// returns -1 if any error
 size_t write_string_to_socket(int socket_fd, const char* str)
 {
 	size_t result, str_length;
