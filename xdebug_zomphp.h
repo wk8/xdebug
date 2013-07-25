@@ -32,10 +32,10 @@ typedef struct string_list {
 	string_list_el* tail;
 } string_list;
 
-typedef void (*process_string)(const char* s);
+typedef int (*process_string)(const char* s, void* func_additional_arg);
 
 string_list* new_string_list();
-int free_and_process_string_list(string_list* sl, process_string func, void* func_arg);
+int free_and_process_string_list(string_list* sl, process_string func, void* func_additional_arg);
 void free_string_list(string_list* sl);
 void add_string_to_string_list(string_list* sl, const char* s);
 

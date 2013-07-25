@@ -40,7 +40,7 @@ void zomphp_debug(const char *format, ...)
 
 #endif
 
-#define FLUSH_DELAY 2 // the # of seconds between two automatic flushes // TODO wkpo 300
+#define FLUSH_DELAY -1 // the # of seconds between two automatic flushes // TODO wkpo 300
 #define MAX_CONSECUTIVE_ERRORS 10 // the # of successive errors when pushing to the daemon beofre giving up
 
 // {{{ STRING_LIST }}}
@@ -60,7 +60,7 @@ string_list* new_string_list()
 // func should return an int
 // if func returns something else than 0, means something went wrong, and we stop here
 // we return 0 on success, or anything we got from func on failure
-int free_and_process_string_list(string_list* sl, process_string func, void* func_arg)
+int free_and_process_string_list(string_list* sl, process_string func, void* func_additional_arg)
 {
 	string_list_el *current, *next;
 	int result = 0;
@@ -70,7 +70,7 @@ int free_and_process_string_list(string_list* sl, process_string func, void* fun
 			current = next;
 			next = current->next;
 			if (func) {
-				result = func(current->data, func_arg);
+				result = func(current->data, func_additional_arg);
 				if (result != 0) {
 					// something went wrong, we stop here
 					sl->head = current;
@@ -271,8 +271,9 @@ void free_zomphp_data(zomphp_data* zd)
 int report_item_to_daemon(const char* s, void* socket_fd)
 {
 	int* sfd = (int*) sfd;
-	ZOMPHP_DEBUG("Reporting to daemon! %s (to socket_fd %d)", s, sfd*);
-	return write_string_to_socket(sfd*) < 0 ? -1 : 0;
+	ZOMPHP_DEBUG("Reporting to daemon! %s (to socket_fd %d)", s, *sfd);
+	return 0; // TODO wkpo
+	return write_string_to_socket(*sfd, s) < 0 ? -1 : 0;
 }
 
 // returns 0 iff we don't need to give up just yet
@@ -291,7 +292,7 @@ int flush_zomphp(zomphp_data* zd)
 			zd->nb_consecutive_flushing_errors++;
 			ZOMPHP_DEBUG("Error when flushing...");
 			if (zd->nb_consecutive_flushing_errors > MAX_CONSECUTIVE_ERRORS) {
-				ZOMPHP_DEBUG("Too many errors! %d VS %d allowed, giving up", nb_consecutive_flushing_errors, MAX_CONSECUTIVE_ERRORS);
+				ZOMPHP_DEBUG("Too many errors! %d VS %d allowed, giving up", zd->nb_consecutive_flushing_errors, MAX_CONSECUTIVE_ERRORS);
 				return 1;
 			}
 		}
@@ -443,11 +444,6 @@ void zomphp_register_line_call(zomphp_data* zd, char* filename, int lineno)
 
 // {{{ ZOMPHP SOCKET }}}
 
-typedef struct zomphp_socket_error {
-	char                      has_error;
-	zomphp_extensible_string* error_msg;
-} zomphp_socket_error;
-
 zomphp_socket_error* new_socket_error()
 {
 	zomphp_socket_error* result;
@@ -519,10 +515,10 @@ int get_zomphp_socket_fd(zomphp_socket_error* error)
 	}
 
 	serv_addr.sun_family = AF_UNIX;
-	memcpy(serv_addr.sun_path, socket_name, sizeof(char) * (strlen(ZOMPHP_SOCKET_PATH) + 1)); // +1 for the terminating char // TODO wkpo sun.path = ZOMPHP_SOCKET_PATH; ??
+	memcpy(serv_addr.sun_path, ZOMPHP_SOCKET_PATH, sizeof(char) * (strlen(ZOMPHP_SOCKET_PATH) + 1)); // +1 for the terminating char // TODO wkpo sun.path = ZOMPHP_SOCKET_PATH; ??
 
 	if (connect(socket_fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
-		report_error("Could not connect to socket ", socket_name, error, silent_error);
+		report_error("Could not connect to socket ", error);
 		return COULD_NOT_CONNECT_TO_SOCKET;
 	}
 
