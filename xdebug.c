@@ -716,6 +716,10 @@ PHP_MSHUTDOWN_FUNCTION(xdebug)
 		xdebug_profiler_output_aggr_data(NULL TSRMLS_CC);
 	}
 
+	// free zomphp and do a last flush
+	flush_zomphp(XG(zomphp));
+	free_zomphp_data(XG(zomphp));
+
 	/* Reset compile, execute and error callbacks */
 	zend_compile_file = old_compile_file;
 #if PHP_VERSION_ID < 50500
@@ -989,6 +993,7 @@ ZEND_MODULE_POST_ZEND_DEACTIVATE_D(xdebug)
 	XG(do_code_coverage) = 0;
 	XG(do_zomphp_cc)     = 0;
 	XG(do_vanilla_cc)    = 0;
+	flush_zomphp_automatic(XG(zomphp));
 
 	xdebug_hash_destroy(XG(code_coverage));
 	XG(code_coverage) = NULL;

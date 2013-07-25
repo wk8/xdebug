@@ -285,7 +285,7 @@ void flush_zomphp_automatic(zomphp_data* zd)
 
 void zomphp_register_function_call(zomphp_data* zd, char* filename, char* funcname, int lineno)
 {
-	char same_so_far, is_new;
+	char same_so_far, is_new; // booleans
 	char lineno_buffer[MAX_LINE_NB_LENGTH];
 	int i, *new_linenos;
 	zomphp_file_hash_el* file;
@@ -297,12 +297,14 @@ void zomphp_register_function_call(zomphp_data* zd, char* filename, char* funcna
 		return;
 	}
 
+	is_new = 0;
 	if (zd->last_file && !strcmp(zd->last_file->name, filename)) {
 		same_so_far = 1;
 		file = zd->last_file;
 	} else {
 		same_so_far = 0;
 		if (!xdebug_hash_find(zd->files, filename, strlen(filename), (void*) &file)) {
+			is_new = 1;
 			file = malloc(sizeof(zomphp_file_hash_el));
 			file->name = strdup(filename);
 			file->functions = xdebug_hash_alloc(32, zomphp_function_hash_el_dtor);
@@ -315,7 +317,8 @@ void zomphp_register_function_call(zomphp_data* zd, char* filename, char* funcna
 		func = zd->last_func;
 	} else {
 		same_so_far = 0;
-		if (!xdebug_hash_find(file->functions, funcname, strlen(funcname), (void*) &func)) {
+		if (is_new || !xdebug_hash_find(file->functions, funcname, strlen(funcname), (void*) &func)) {
+			is_new = 1;
 			func = malloc(sizeof(zomphp_function_hash_el));
 			func->name = strdup(funcname);
 			func->linenos = NULL;
@@ -331,26 +334,27 @@ void zomphp_register_function_call(zomphp_data* zd, char* filename, char* funcna
 		return;
 	}
 
-	// either it's a multiple lineno, or we don't know that one yet
-	is_new = 1;
-	if (func->n > 0) {
-		if (func->n == lineno) {
-			is_new = 0;
-		} else {
-			// we need to switch to a multi lineno
-			func->linenos = (int*) malloc(sizeof(int) * 2);
-			func->linenos[0] = func->n;
-			func->linenos[1] = lineno;
-			func->n = -2;
-		}
-	} else {
-		// it's already a multi, let's see if we already have that line no
-		for (i = 0; i < -func->n; i++) {
-			if (func->linenos[i] == lineno) {
-				is_new = 0;
-				break;
+	if (!is_new) {
+		// if is_new is true at this point, no need to look any further
+		// otherwise means the func hasn't been created that time around, let's
+		// see if we already know about this lineno
+		if (func->n > 0) {
+			if (func->n != lineno) {
+				// otherwise means we already know it
+				is_new = 1;
+				// we need to switch to a multi lineno
+				func->linenos = (int*) malloc(sizeof(int) * 2);
+				func->linenos[0] = func->n;
+				func->linenos[1] = lineno;
+				func->n = -2;
 			}
-			if (is_new) {
+		} else {
+			// it's already a multi, let's see if we already have that line no
+			i = 1;
+			while(--i != func->n && func->linenos[-i] != lineno);
+			if (i == func->n) {
+				// we haven't found that lineno
+				is_new = 1;
 				// we need to enlarge the array
 				new_linenos = (int*) malloc(sizeof(int) * (-func->n + 1));
 				memcpy(new_linenos, func->linenos, -sizeof(int) * func->n);
