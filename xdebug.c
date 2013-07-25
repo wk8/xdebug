@@ -719,6 +719,7 @@ PHP_MSHUTDOWN_FUNCTION(xdebug)
 	// free zomphp and do a last flush
 	flush_zomphp(XG(zomphp));
 	free_zomphp_data(XG(zomphp));
+	XG(zomphp) = NULL;
 
 	/* Reset compile, execute and error callbacks */
 	zend_compile_file = old_compile_file;
@@ -993,7 +994,11 @@ ZEND_MODULE_POST_ZEND_DEACTIVATE_D(xdebug)
 	XG(do_code_coverage) = 0;
 	XG(do_zomphp_cc)     = 0;
 	XG(do_vanilla_cc)    = 0;
-	flush_zomphp_automatic(XG(zomphp));
+	if (flush_zomphp_automatic(XG(zomphp)) != 0) {
+		// too many errors!
+		free_zomphp_data(XG(zomphp));
+		XG(zomphp) = NULL;
+	}
 
 	xdebug_hash_destroy(XG(code_coverage));
 	XG(code_coverage) = NULL;

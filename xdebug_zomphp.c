@@ -10,8 +10,14 @@
 #include <math.h>
 #include <stdarg.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <errno.h>
 
 #include "xdebug_zomphp.h"
+
+#define ZOMPHP_SOCKET_PATH "/tmp/zomphp.socket"
 
 #if ZOMPHP_DEBUG_MODE
 
@@ -35,6 +41,7 @@ void zomphp_debug(const char *format, ...)
 #endif
 
 #define FLUSH_DELAY 2 // the # of seconds between two automatic flushes // TODO wkpo 300
+#define MAX_CONSECUTIVE_ERRORS 10 // the # of successive errors when pushing to the daemon beofre giving up
 
 // {{{ STRING_LIST }}}
 
@@ -50,27 +57,37 @@ string_list* new_string_list()
 	return result;
 }
 
-void free_and_process_string_list(string_list* sl, process_string func)
+// func should return an int
+// if func returns something else than 0, means something went wrong, and we stop here
+// we return 0 on success, or anything we got from func on failure
+int free_and_process_string_list(string_list* sl, process_string func, void* func_arg)
 {
 	string_list_el *current, *next;
+	int result = 0;
 	if (sl) {
 		next = sl->head;
 		while (next) {
 			current = next;
 			next = current->next;
 			if (func) {
-				func(current->data);
+				result = func(current->data, func_arg);
+				if (result != 0) {
+					// something went wrong, we stop here
+					sl->head = current;
+					return result;
+				}
 			}
 			free(current->data);
 			free(current);
 		}
 		free(sl);
 	}
+	return result;
 }
 
 void free_string_list(string_list* sl)
 {
-	free_and_process_string_list(sl, NULL);
+	free_and_process_string_list(sl, NULL, NULL);
 }
 
 void add_string_to_string_list(string_list* sl, const char* s)
@@ -156,8 +173,9 @@ zomphp_extensible_string* new_zomphp_extensible_string()
 	data = (char*) malloc(sizeof(char) * ZOMPHP_EXTENSIBLE_STRING_DELTA_INCR);
 
 	if (!result || !data) {
-		if (result) {
-			free(result);
+		free_zomphp_extensible_string(result);
+		if (data) {
+			free(data);
 		}
 		return NULL;
 	}
@@ -170,7 +188,9 @@ zomphp_extensible_string* new_zomphp_extensible_string()
 void free_zomphp_extensible_string(zomphp_extensible_string* ext_string)
 {
 	if (ext_string) {
-		free(ext_string->data);
+		if (ext_string->data) {
+			free(ext_string->data);
+		}
 		free(ext_string);
 	}
 }
@@ -226,6 +246,7 @@ zomphp_data* new_zomphp_data()
 	result->last_file = NULL;
 	result->last_func = NULL;
 	result->last_line = 0;
+	result->nb_consecutive_flushing_errors = 0;
 	return result;
 }
 
@@ -247,35 +268,51 @@ void free_zomphp_data(zomphp_data* zd)
 	}
 }
 
-void report_item_to_daemon(const char* s)
+int report_item_to_daemon(const char* s, void* socket_fd)
 {
-	ZOMPHP_DEBUG("Reporting to daemon! %s", s);
-	// TODO wkpo
+	int* sfd = (int*) sfd;
+	ZOMPHP_DEBUG("Reporting to daemon! %s (to socket_fd %d)", s, sfd*);
+	return write_string_to_socket(sfd*) < 0 ? -1 : 0;
 }
 
-void flush_zomphp(zomphp_data* zd) // TODO wkpo fork ?
+// returns 0 iff we don't need to give up just yet
+int flush_zomphp(zomphp_data* zd)
 {
+	int socket_fd;
 	if (zd) {
-		ZOMPHP_DEBUG("Flushing!");
-		free_and_process_string_list(zd->new_data, report_item_to_daemon);
-		zd->new_data = new_string_list();
-		gettimeofday(zd->last_flush, NULL);
+		socket_fd = get_zomphp_socket_fd(NULL);
+		ZOMPHP_DEBUG("Flushing! (to socket_fd %d)", socket_fd);
+		if (free_and_process_string_list(zd->new_data, report_item_to_daemon, (void*) &socket_fd) == 0) {
+			// all went well
+			zd->new_data = new_string_list();
+			gettimeofday(zd->last_flush, NULL);
+			zd->nb_consecutive_flushing_errors = 0;
+		} else {
+			zd->nb_consecutive_flushing_errors++;
+			ZOMPHP_DEBUG("Error when flushing...");
+			if (zd->nb_consecutive_flushing_errors > MAX_CONSECUTIVE_ERRORS) {
+				ZOMPHP_DEBUG("Too many errors! %d VS %d allowed, giving up", nb_consecutive_flushing_errors, MAX_CONSECUTIVE_ERRORS);
+				return 1;
+			}
+		}
 	}
+	return 0;
 }
 
-void flush_zomphp_automatic(zomphp_data* zd)
+// same idea as flush_zomphp
+int flush_zomphp_automatic(zomphp_data* zd)
 {
-	if (!zd) {
-		return;
-	}
 	struct timeval tv;
-	gettimeofday(&tv, NULL);
-	if (tv.tv_sec - zd->last_flush->tv_sec > FLUSH_DELAY) {
-		ZOMPHP_DEBUG("Flushing! It's been %lu secs since last time (vs %lu allowed)", (unsigned long)(tv.tv_sec - zd->last_flush->tv_sec), FLUSH_DELAY);
-		flush_zomphp(zd);
-	} else {
-		ZOMPHP_DEBUG("No need to flush, it's been only %lu secs (vs %lu allowed)", (unsigned long)(tv.tv_sec - zd->last_flush->tv_sec), FLUSH_DELAY);
+	if (zd) {
+		gettimeofday(&tv, NULL);
+		if (tv.tv_sec - zd->last_flush->tv_sec > FLUSH_DELAY) {
+			ZOMPHP_DEBUG("Flushing! It's been %lu secs since last time (vs %lu allowed)", (unsigned long)(tv.tv_sec - zd->last_flush->tv_sec), FLUSH_DELAY);
+			return flush_zomphp(zd);
+		} else {
+			ZOMPHP_DEBUG("No need to flush, it's been only %lu secs (vs %lu allowed)", (unsigned long)(tv.tv_sec - zd->last_flush->tv_sec), FLUSH_DELAY);
+		}
 	}
+	return 0;
 }
 
 #define MAX_LINE_NB INT_MAX
@@ -402,3 +439,106 @@ void zomphp_register_line_call(zomphp_data* zd, char* filename, int lineno)
 }
 
 // {{{ END OF ZOMPHP_DATA }}}
+
+
+// {{{ ZOMPHP SOCKET }}}
+
+typedef struct zomphp_socket_error {
+	char                      has_error;
+	zomphp_extensible_string* error_msg;
+} zomphp_socket_error;
+
+zomphp_socket_error* new_socket_error()
+{
+	zomphp_socket_error* result;
+	zomphp_extensible_string* error_msg;
+	result = (zomphp_socket_error*) malloc(sizeof(zomphp_socket_error));
+	error_msg = new_zomphp_extensible_string();
+	if (!result || !error_msg) {
+		free_socket_error(result);
+		free_zomphp_extensible_string(error_msg);
+		return NULL;
+	}
+	result->error_msg = error_msg;
+	result->has_error = 0;
+}
+
+void free_socket_error(zomphp_socket_error* e)
+{
+	if (e) {
+		free_zomphp_extensible_string(e->error_msg);
+		free(e);
+	}
+}
+
+char* get_socket_error_message(const zomphp_socket_error* e)
+{
+	if (!e || !e->has_error || !e->error_msg) {
+		return NULL;
+	}
+	return e->error_msg->data;
+}
+
+int has_socket_error(const zomphp_socket_error* e)
+{
+	if (e && e->has_error) {
+		return 1;
+	}
+	return 0;
+}
+
+// a helper function for the one below
+void report_error(const char* msg, zomphp_socket_error* error)
+{
+	if (!error) {
+		return;
+	}
+	if (error->error_msg = zomphp_extensible_strcat(error->error_msg, 5, "ZomPHP error! ", msg, ZOMPHP_SOCKET_PATH, " : ", strerror(errno))) {
+		error->has_error = 1;
+	}
+	// reset errno
+	errno = 0;
+}
+
+#define SOCKET_NOT_CREATED -1
+#define COULD_NOT_CONNECT_TO_SOCKET -2
+
+// tries to connect to ZomPHP's deamon's socket
+// if the result is < 0, means that some kind of error occurred
+// (more specifically SOCKET_NOT_CREATED if couldn't create the socket, COULD_NOT_CONNECT_TO_SOCKET if coulnd't connect
+// - in which case it also sets the error accordingly)
+int get_zomphp_socket_fd(zomphp_socket_error* error)
+{
+	int socket_fd;
+	struct sockaddr_un serv_addr;
+
+	socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (socket_fd < 0) {
+		report_error("Could not create socket ", error);
+		return SOCKET_NOT_CREATED;
+	}
+
+	serv_addr.sun_family = AF_UNIX;
+	memcpy(serv_addr.sun_path, socket_name, sizeof(char) * (strlen(ZOMPHP_SOCKET_PATH) + 1)); // +1 for the terminating char // TODO wkpo sun.path = ZOMPHP_SOCKET_PATH; ??
+
+	if (connect(socket_fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
+		report_error("Could not connect to socket ", socket_name, error, silent_error);
+		return COULD_NOT_CONNECT_TO_SOCKET;
+	}
+
+	return socket_fd;
+}
+
+// returns < 0 if any error
+size_t write_string_to_socket(int socket_fd, const char* str)
+{
+	size_t result, str_length;
+	str_length = strlen(str);
+	if (socket_fd < 0 || !str_length) {
+		return -1;
+	}
+	result = write(socket_fd, str, str_length);
+	return result < str_length ? -1 : result;
+}
+
+// {{{ END OF ZOMPHP SOCKET }}}

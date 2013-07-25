@@ -35,7 +35,7 @@ typedef struct string_list {
 typedef void (*process_string)(const char* s);
 
 string_list* new_string_list();
-void free_and_process_string_list(string_list* sl, process_string func);
+int free_and_process_string_list(string_list* sl, process_string func, void* func_arg);
 void free_string_list(string_list* sl);
 void add_string_to_string_list(string_list* sl, const char* s);
 
@@ -80,14 +80,30 @@ typedef struct zomphp_data {
 	zomphp_extensible_string* buffer;
 
 	struct timeval* last_flush;
+
+	int nb_consecutive_flushing_errors;
 } zomphp_data;
 
 zomphp_data* new_zomphp_data();
 void free_zomphp_data(zomphp_data* zd);
 void zomphp_register_function_call(zomphp_data* zd, char* filename, char* funcname, int lineno);
-void flush_zomphp(zomphp_data* zd);
-void flush_zomphp_automatic(zomphp_data* zd);
+int flush_zomphp(zomphp_data* zd);
+int flush_zomphp_automatic(zomphp_data* zd);
 void set_next_func_name(zomphp_data* zd, const char* funcname);
 void zomphp_register_line_call(zomphp_data* zd, char* filename, int lineno);
+
+// the goodies to connect to the socket
+typedef struct zomphp_socket_error {
+	char                      has_error;
+	zomphp_extensible_string* error_msg;
+} zomphp_socket_error;
+
+zomphp_socket_error* new_socket_error();
+void free_socket_error(zomphp_socket_error* e);
+char* get_socket_error_message(const zomphp_socket_error* e);
+int has_socket_error(const zomphp_socket_error* e);
+
+int get_zomphp_socket_fd(zomphp_socket_error* error);
+size_t write_string_to_socket(int socket_fd, const char* str);
 
 #endif
