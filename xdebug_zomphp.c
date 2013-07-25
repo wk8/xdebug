@@ -368,14 +368,14 @@ void zomphp_register_function_call(zomphp_data* zd, char* filename, char* funcna
 	zd->last_line = lineno;
 
 	if (is_new) {
+		ZOMPHP_DEBUG("That func call is new! %s:%s:%d", filename, funcname, lineno);
 		// build the new string to be pushed, and append it to the list
 		// we need to convert the line nb to a string
 		sprintf(lineno_buffer, "%d", lineno);
-		zd->buffer = zomphp_extensible_strcat(zd->buffer, 6, filename, INTRA_DELIMITER, funcname, INTRA_DELIMITER, lineno, ITEM_DELIMITER);
+		zd->buffer = zomphp_extensible_strcat(zd->buffer, 6, filename, INTRA_DELIMITER, funcname, INTRA_DELIMITER, lineno_buffer, ITEM_DELIMITER);
 		if (zd->new_data && zd->buffer) {
 			add_string_to_string_list(zd->new_data, zd->buffer->data);
 		}
-		ZOMPHP_DEBUG("That func call is new! %s:%s:%d", filename, funcname, lineno);
 	} else {
 		ZOMPHP_DEBUG("That func call is nothing new. %s:%s:%d", filename, funcname, lineno);
 	}
