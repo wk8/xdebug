@@ -270,7 +270,7 @@ void free_zomphp_data(zomphp_data* zd)
 
 int report_item_to_daemon(const char* s, void* socket_fd)
 {
-	int* sfd = (int*) sfd;
+	int* sfd = (int*) socket_fd;
 	ZOMPHP_DEBUG("Reporting to daemon! %s (to socket_fd %d)", s, *sfd);
 	return 0; // TODO wkpo
 	return write_string_to_socket(*sfd, s) < 0 ? -1 : 0;
@@ -290,7 +290,7 @@ int flush_zomphp(zomphp_data* zd)
 			zd->nb_consecutive_flushing_errors = 0;
 		} else {
 			zd->nb_consecutive_flushing_errors++;
-			ZOMPHP_DEBUG("Error when flushing...");
+			ZOMPHP_DEBUG("Error when flushing... (current count %d, max %d)", zd->nb_consecutive_flushing_errors, MAX_CONSECUTIVE_ERRORS);
 			if (zd->nb_consecutive_flushing_errors > MAX_CONSECUTIVE_ERRORS) {
 				ZOMPHP_DEBUG("Too many errors! %d VS %d allowed, giving up", zd->nb_consecutive_flushing_errors, MAX_CONSECUTIVE_ERRORS);
 				return 1;
