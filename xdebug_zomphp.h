@@ -93,8 +93,8 @@ int flush_zomphp_automatic(zomphp_data* zd);
 void set_next_func_name(zomphp_data* zd, const char* funcname);
 void zomphp_register_line_call(zomphp_data* zd, char* filename, int lineno);
 
-// the goodies to connect to the socket
 
+// the goodies to connect to the socket
 int get_zomphp_socket_fd(zomphp_extensible_string** error);
 size_t write_string_to_socket(int socket_fd, const char* str);
 
