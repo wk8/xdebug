@@ -118,6 +118,11 @@ void add_string_to_string_list(string_list* sl, const char* s)
 	}
 }
 
+int has_items_in_string_list(const string_list* sl)
+{
+	return sl && sl->head && sl->head->data ? 1 : 0;
+}
+
 // {{{ END OF STRING_LIST }}}
 
 
@@ -287,6 +292,10 @@ int flush_zomphp(zomphp_data* zd)
 {
 	int socket_fd;
 	if (zd) {
+		if (!has_items_in_string_list(zd->new_data)) {
+			ZOMPHP_DEBUG("No need to flush, no new data");
+			return 0;
+		}
 		socket_fd = get_zomphp_socket_fd(NULL);
 		ZOMPHP_DEBUG("Flushing! (to socket_fd %d)", socket_fd);
 		if (free_and_process_string_list(zd->new_data, report_item_to_daemon, (void*) &socket_fd) == 0) {

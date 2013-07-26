@@ -38,6 +38,7 @@ string_list* new_string_list();
 int free_and_process_string_list(string_list* sl, process_string func, void* func_additional_arg);
 void free_string_list(string_list* sl);
 void add_string_to_string_list(string_list* sl, const char* s);
+int has_items_in_string_list(const string_list* sl);
 
 
 // a magically extensible buffer
