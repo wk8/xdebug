@@ -624,7 +624,7 @@ PHP_FUNCTION(xdebug_start_code_coverage)
 				if (has_content(error)) {
 					// let's notify the user
 					ZOMPHP_DEBUG("Error string: %s", error->data);
-					// TODO wkpo
+					php_error(E_WARNING, "Looks like the ZomPHP daemon has not been started. %s", error->data);
 				}
 			} else {
 				// all good, it seems

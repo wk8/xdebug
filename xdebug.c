@@ -987,7 +987,6 @@ ZEND_MODULE_POST_ZEND_DEACTIVATE_D(xdebug)
 		XG(ide_key) = NULL;
 	}
 
-	// ZOMPHP_DEBUG("On est dans post zend deactivate"); // TODO wkpo
 	XG(level)            = 0;
 	XG(do_trace)         = 0;
 	XG(coverage_enable)  = 0;
@@ -996,7 +995,8 @@ ZEND_MODULE_POST_ZEND_DEACTIVATE_D(xdebug)
 	XG(do_vanilla_cc)    = 0;
 	if (flush_zomphp_automatic(XG(zomphp)) != 0) {
 		// too many errors!
-		free_zomphp_data(XG(zomphp)); // TODO wkpo test le free...
+		ZOMPHP_DEBUG("Too many errors, freeing XG(zomphp)");
+		free_zomphp_data(XG(zomphp));
 		XG(zomphp) = NULL;
 	}
 
