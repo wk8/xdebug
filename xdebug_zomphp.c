@@ -453,12 +453,14 @@ void zomphp_register_line_call(zomphp_data* zd, char* filename, int lineno)
 // {{{ ZOMPHP SOCKET }}}
 
 // a helper function for the one below
-zomphp_extensible_string* report_error(const char* msg, zomphp_extensible_string* error)
+void report_error(const char* msg, zomphp_extensible_string** error)
 {
-	if (!error) {
-		return NULL;
+	if (!error || !*error) {
+		return;
 	}
-	return zomphp_extensible_strcat(error, 5, "ZomPHP error! ", msg, ZOMPHP_SOCKET_PATH, " : ", strerror(errno));
+	*error = zomphp_extensible_strcat(*error, 5, "ZomPHP error! ", msg, ZOMPHP_SOCKET_PATH, " : ", strerror(errno));
+	// reset errno
+	errno = 0;
 }
 
 // tries to connect to ZomPHP's deamon's socket
@@ -469,11 +471,10 @@ int get_zomphp_socket_fd(zomphp_extensible_string** error)
 {
 	int socket_fd;
 	struct sockaddr_un serv_addr;
-
 	socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (socket_fd < 0) {
 		ZOMPHP_DEBUG("Could not create socket");
-		*error = report_error("Could not create socket ", *error);
+		report_error("Could not create socket ", error);
 		return -1;
 	}
 
@@ -482,7 +483,7 @@ int get_zomphp_socket_fd(zomphp_extensible_string** error)
 
 	if (connect(socket_fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
 		ZOMPHP_DEBUG("Could not connect to socket");
-		*error = report_error("Could not connect to socket ", *error);
+		report_error("Could not connect to socket ", error);
 		return -1;
 	}
 

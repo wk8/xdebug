@@ -618,19 +618,22 @@ PHP_FUNCTION(xdebug_start_code_coverage)
 		if (!XG(zomphp)) {
 			// we try to connect to the socket, no point in logging anything otherwise
 			error = new_zomphp_extensible_string();
-			free_zomphp_extensible_string(error);
-			zomphp_socket_fd = get_zomphp_socket_fd(NULL);
+			zomphp_socket_fd = get_zomphp_socket_fd(&error);
 			if (zomphp_socket_fd < 0) {
 				ZOMPHP_DEBUG("Could not connect to ZomPHP's socket (%d)", zomphp_socket_fd);
-				// let's notify the user
-				// TODO wkpo
+				if (has_content(error)) {
+					// let's notify the user
+					ZOMPHP_DEBUG("Error string: %s", error->data);
+					// TODO wkpo
+				}
 			} else {
 				// all good, it seems
 				ZOMPHP_DEBUG("Connected successfully to ZomPHP's socket (fd %d)", zomphp_socket_fd);
 				XG(zomphp) = new_zomphp_data();
-				// no need to keep that around
+				// no need to keep that open
 				close(zomphp_socket_fd);
 			}
+			free_zomphp_extensible_string(error);
 			if (zomphp_socket_fd < 0) {
 				XG(do_zomphp_cc) = 0;
 				RETURN_FALSE;
