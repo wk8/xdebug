@@ -597,6 +597,7 @@ void xdebug_prefill_code_coverage(zend_op_array *op_array TSRMLS_DC)
 PHP_FUNCTION(xdebug_start_code_coverage)
 {
 	long options = 0;
+	int zomphp_socket_fd;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|l", &options) == FAILURE) {
 		return;
@@ -614,7 +615,23 @@ PHP_FUNCTION(xdebug_start_code_coverage)
 	} else if (options & XDEBUG_CC_OPTION_ZOMPHP) {
 		// we init the zomphp struct only if it's not already around
 		if (!XG(zomphp)) {
-			XG(zomphp) = new_zomphp_data();
+			// we try to connect to the socket, no point in logging anything otherwise
+			zomphp_socket_fd = get_zomphp_socket_fd(NULL);
+			if (zomphp_socket_fd < 0) {
+				ZOMPHP_DEBUG("Could not connect to ZomPHP's socket (%d)", zomphp_socket_fd);
+				// let's notify the user
+				// TODO wkpo
+			} else {
+				// all good, it seems
+				ZOMPHP_DEBUG("Connected successfully to ZomPHP's socket (fd %d)", zomphp_socket_fd);
+				XG(zomphp) = new_zomphp_data();
+				// no need to keep that around
+				close(zomphp_socket_fd);
+			}
+			if (zomphp_socket_fd < 0) {
+				XG(do_zomphp_cc) = 0;
+				RETURN_FALSE;
+			}
 		}
 	} else {
 		// vanilla code coverage
