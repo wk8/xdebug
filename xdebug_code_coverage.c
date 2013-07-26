@@ -598,6 +598,7 @@ PHP_FUNCTION(xdebug_start_code_coverage)
 {
 	long options = 0;
 	int zomphp_socket_fd;
+	zomphp_extensible_string* error;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|l", &options) == FAILURE) {
 		return;
@@ -616,6 +617,8 @@ PHP_FUNCTION(xdebug_start_code_coverage)
 		// we init the zomphp struct only if it's not already around
 		if (!XG(zomphp)) {
 			// we try to connect to the socket, no point in logging anything otherwise
+			error = new_zomphp_extensible_string()
+			free_zomphp_extensible_string(error);
 			zomphp_socket_fd = get_zomphp_socket_fd(NULL);
 			if (zomphp_socket_fd < 0) {
 				ZOMPHP_DEBUG("Could not connect to ZomPHP's socket (%d)", zomphp_socket_fd);

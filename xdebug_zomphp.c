@@ -17,6 +17,8 @@
 
 #include "xdebug_zomphp.h"
 
+#define free(x) ZOMPHP_DEBUG("On free %d", x); free(x) // TODO wkpo
+
 #define ZOMPHP_SOCKET_PATH "/tmp/zomphp.socket"
 
 #if ZOMPHP_DEBUG_MODE
@@ -181,6 +183,7 @@ zomphp_extensible_string* new_zomphp_extensible_string()
 		return NULL;
 	}
 
+	memcpy(result->data, "\0", sizeof(char));
 	result->data = data;
 	result->current_length = ZOMPHP_EXTENSIBLE_STRING_DELTA_INCR;
 	return result;
@@ -194,6 +197,11 @@ void free_zomphp_extensible_string(zomphp_extensible_string* ext_string)
 		}
 		free(ext_string);
 	}
+}
+
+int has_content(const zomphp_extensible_string* ext_string)
+{
+	return ext_string && ext_string->data && strlen(ext_string->data) ?  1 : 0;
 }
 
 // {{{ END OF ZOMPHP_EXTENSIBLE_STRING }}}
@@ -444,66 +452,20 @@ void zomphp_register_line_call(zomphp_data* zd, char* filename, int lineno)
 
 // {{{ ZOMPHP SOCKET }}}
 
-zomphp_socket_error* new_socket_error()
-{
-	zomphp_socket_error* result;
-	zomphp_extensible_string* error_msg;
-	result = (zomphp_socket_error*) malloc(sizeof(zomphp_socket_error));
-	error_msg = new_zomphp_extensible_string();
-	if (!result || !error_msg) {
-		free_socket_error(result);
-		free_zomphp_extensible_string(error_msg);
-		return NULL;
-	}
-	result->error_msg = error_msg;
-	result->has_error = 0;
-}
-
-void free_socket_error(zomphp_socket_error* e)
-{
-	if (e) {
-		free_zomphp_extensible_string(e->error_msg);
-		free(e);
-	}
-}
-
-char* get_socket_error_message(const zomphp_socket_error* e)
-{
-	if (!e || !e->has_error || !e->error_msg) {
-		return NULL;
-	}
-	return e->error_msg->data;
-}
-
-int has_socket_error(const zomphp_socket_error* e)
-{
-	if (e && e->has_error) {
-		return 1;
-	}
-	return 0;
-}
-
 // a helper function for the one below
-void report_error(const char* msg, zomphp_socket_error* error)
+zomphp_extensible_string* report_error(const char* msg, zomphp_extensible_string* error)
 {
 	if (!error) {
-		return;
+		return NULL;
 	}
-	if (error->error_msg = zomphp_extensible_strcat(error->error_msg, 5, "ZomPHP error! ", msg, ZOMPHP_SOCKET_PATH, " : ", strerror(errno))) {
-		error->has_error = 1;
-	}
-	// reset errno
-	errno = 0;
+	return zomphp_extensible_strcat(error->error_msg, 5, "ZomPHP error! ", msg, ZOMPHP_SOCKET_PATH, " : ", strerror(errno));
 }
-
-#define SOCKET_NOT_CREATED -1
-#define COULD_NOT_CONNECT_TO_SOCKET -2
 
 // tries to connect to ZomPHP's deamon's socket
 // if the result is < 0, means that some kind of error occurred
 // (more specifically SOCKET_NOT_CREATED if couldn't create the socket, COULD_NOT_CONNECT_TO_SOCKET if coulnd't connect
 // - in which case it also sets the error accordingly)
-int get_zomphp_socket_fd(zomphp_socket_error* error)
+int get_zomphp_socket_fd(zomphp_extensible_string** error)
 {
 	int socket_fd;
 	struct sockaddr_un serv_addr;
@@ -511,8 +473,8 @@ int get_zomphp_socket_fd(zomphp_socket_error* error)
 	socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (socket_fd < 0) {
 		ZOMPHP_DEBUG("Could not create socket");
-		report_error("Could not create socket ", error);
-		return SOCKET_NOT_CREATED;
+		*error = report_error("Could not create socket ", *error);
+		return -1;
 	}
 
 	serv_addr.sun_family = AF_UNIX;
@@ -520,8 +482,8 @@ int get_zomphp_socket_fd(zomphp_socket_error* error)
 
 	if (connect(socket_fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
 		ZOMPHP_DEBUG("Could not connect to socket");
-		report_error("Could not connect to socket ", error);
-		return COULD_NOT_CONNECT_TO_SOCKET;
+		*error = report_error("Could not connect to socket ", *error);
+		return -1;
 	}
 
 	return socket_fd;

@@ -996,7 +996,7 @@ ZEND_MODULE_POST_ZEND_DEACTIVATE_D(xdebug)
 	XG(do_vanilla_cc)    = 0;
 	if (flush_zomphp_automatic(XG(zomphp)) != 0) {
 		// too many errors!
-		free_zomphp_data(XG(zomphp));
+		free_zomphp_data(XG(zomphp)); // TODO wkpo test le free...
 		XG(zomphp) = NULL;
 	}
 

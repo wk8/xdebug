@@ -49,6 +49,7 @@ typedef struct zomphp_extensible_string {
 zomphp_extensible_string* new_zomphp_extensible_string();
 void free_zomphp_extensible_string(zomphp_extensible_string* ext_string);
 zomphp_extensible_string* zomphp_extensible_strcat(zomphp_extensible_string* ext_string, const int nb_strings, ...);
+int has_content(const zomphp_extensible_string* ext_string);
 
 
 // helper hash structs for zomphp_data below
@@ -93,17 +94,8 @@ void set_next_func_name(zomphp_data* zd, const char* funcname);
 void zomphp_register_line_call(zomphp_data* zd, char* filename, int lineno);
 
 // the goodies to connect to the socket
-typedef struct zomphp_socket_error {
-	char                      has_error;
-	zomphp_extensible_string* error_msg;
-} zomphp_socket_error;
 
-zomphp_socket_error* new_socket_error();
-void free_socket_error(zomphp_socket_error* e);
-char* get_socket_error_message(const zomphp_socket_error* e);
-int has_socket_error(const zomphp_socket_error* e);
-
-int get_zomphp_socket_fd(zomphp_socket_error* error);
+int get_zomphp_socket_fd(zomphp_extensible_string** error);
 size_t write_string_to_socket(int socket_fd, const char* str);
 
 #endif
