@@ -40,7 +40,7 @@ void zomphp_debug(const char *format, ...)
 
 #endif
 
-#define FLUSH_DELAY -1 // the # of seconds between two automatic flushes // TODO wkpo 300
+#define FLUSH_DELAY 300 // the # of seconds between two automatic flushes
 #define MAX_CONSECUTIVE_ERRORS 10 // the # of successive errors when pushing to the daemon beofre giving up
 
 // {{{ STRING_LIST }}}
@@ -489,7 +489,7 @@ int get_zomphp_socket_fd(zomphp_extensible_string** error)
 	}
 
 	serv_addr.sun_family = AF_UNIX;
-	memcpy(serv_addr.sun_path, ZOMPHP_SOCKET_PATH, sizeof(char) * (strlen(ZOMPHP_SOCKET_PATH) + 1)); // +1 for the terminating char // TODO wkpo sun.path = ZOMPHP_SOCKET_PATH; ??
+	memcpy(serv_addr.sun_path, ZOMPHP_SOCKET_PATH, sizeof(char) * (strlen(ZOMPHP_SOCKET_PATH) + 1)); // +1 for the terminating char
 
 	if (connect(socket_fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
 		ZOMPHP_DEBUG("Could not connect to socket");

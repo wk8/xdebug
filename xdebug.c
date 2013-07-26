@@ -301,7 +301,6 @@ PHP_INI_END()
 
 static void php_xdebug_init_globals (zend_xdebug_globals *xg TSRMLS_DC)
 {
-	// ZOMPHP_DEBUG("On est dans init globals"); // TODO wkpo
 	xg->stack                = NULL;
 	xg->level                = 0;
 	xg->do_trace             = 0;
@@ -825,7 +824,6 @@ int xdebug_ub_write(const char *string, unsigned int length TSRMLS_DC)
 
 PHP_RINIT_FUNCTION(xdebug)
 {
-	ZOMPHP_DEBUG("RINIT!! %d %d", XG(do_zomphp_cc), XG(zomphp)); // TODO wkpo
 	zend_function *orig;
 	char *idekey;
 	zval **dummy;

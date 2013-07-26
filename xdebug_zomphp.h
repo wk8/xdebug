@@ -11,7 +11,7 @@
 #include "xdebug_hash.h"
 
 // only used for debugging - not thread/process-safe!
-#define ZOMPHP_DEBUG_MODE 1 // TODO wkpo
+#define ZOMPHP_DEBUG_MODE 0
 #if ZOMPHP_DEBUG_MODE
 void zomphp_debug(const char *format, ...);
 #define ZOMPHP_DEBUG(format, ...) zomphp_debug(format, ##__VA_ARGS__)
