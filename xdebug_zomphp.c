@@ -17,8 +17,6 @@
 
 #include "xdebug_zomphp.h"
 
-#define free(x) ZOMPHP_DEBUG("On free %d", x); free(x) // TODO wkpo
-
 #define ZOMPHP_SOCKET_PATH "/tmp/zomphp.socket"
 
 #if ZOMPHP_DEBUG_MODE
@@ -303,6 +301,9 @@ int flush_zomphp(zomphp_data* zd)
 				ZOMPHP_DEBUG("Too many errors! %d VS %d allowed, giving up", zd->nb_consecutive_flushing_errors, MAX_CONSECUTIVE_ERRORS);
 				return 1;
 			}
+		}
+		if (socket_fd >= 0) {
+			close(socket_fd);
 		}
 	}
 	return 0;
