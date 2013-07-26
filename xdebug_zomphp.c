@@ -183,7 +183,7 @@ zomphp_extensible_string* new_zomphp_extensible_string()
 		return NULL;
 	}
 
-	memcpy(result->data, "\0", sizeof(char));
+	memcpy(data, "\0", sizeof(char));
 	result->data = data;
 	result->current_length = ZOMPHP_EXTENSIBLE_STRING_DELTA_INCR;
 	return result;
@@ -458,7 +458,7 @@ zomphp_extensible_string* report_error(const char* msg, zomphp_extensible_string
 	if (!error) {
 		return NULL;
 	}
-	return zomphp_extensible_strcat(error->error_msg, 5, "ZomPHP error! ", msg, ZOMPHP_SOCKET_PATH, " : ", strerror(errno));
+	return zomphp_extensible_strcat(error, 5, "ZomPHP error! ", msg, ZOMPHP_SOCKET_PATH, " : ", strerror(errno));
 }
 
 // tries to connect to ZomPHP's deamon's socket
