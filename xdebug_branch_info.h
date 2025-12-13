@@ -46,6 +46,7 @@ typedef struct _xdebug_path_info {
 	unsigned int     paths_count; /* The number of collected paths */
 	unsigned int     paths_size;  /* The amount of slots allocated for storing paths */
 	xdebug_path    **paths;       /* An array of possible paths */
+	// wkpo can we re-use this hash thing?
 	xdebug_hash     *path_hash;   /* A hash where each path's key is the sequence of followed branches, pointing to a path in the paths array */
 } xdebug_path_info;
 
