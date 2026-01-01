@@ -3,6 +3,7 @@
  *  - do xdebug func pointers remain the same? can i use that for caching IDs?
  */
 
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
@@ -53,12 +54,11 @@ static const char* log_level_to_str(phuck_off_log_level level) {
     }
 }
 
-static inline void write_best_effort(int fd, const char* buf, size_t len)
-{
+static inline void write_best_effort(int fd, const char* buffer, size_t len) {
     while (len > 0) {
-        ssize_t rc = write(fd, buf, len);
+        ssize_t rc = write(fd, buffer, len);
         if (rc > 0) {
-            buf += rc;
+            buffer += rc;
             len -= (size_t)rc;
             continue;
         }
@@ -153,7 +153,14 @@ static void shutdown_logger(void) {
 
 /****************
  * MAIN SECTION *
- *****************/
+ ****************/
+
+typedef struct phuck_off {
+    int initialized;
+    xdebug_hash* funcs;
+} phuck_off;
+
+static phuck_off handler = { 0, NULL };
 
 static void strip_newline(char* s, size_t* len) {
     while (*len > 0) {
@@ -166,8 +173,7 @@ static void strip_newline(char* s, size_t* len) {
     }
 }
 
-static xdebug_hash* build_funcs_hash(void)
-{
+static xdebug_hash* build_funcs_hash(void) {
     phuck_off_log(PHUCK_OFF_LOG_LEVEL_INFO, "reading funcs from %s", PHUCK_OFF_FUNCS_FILE);
 
     FILE* fp = fopen("/etc/funcs.txt", "rb");
@@ -183,26 +189,111 @@ static xdebug_hash* build_funcs_hash(void)
         return NULL;
     }
 
-    char* buf = NULL;
+    char* buffer = NULL;
     size_t cap = 0;
     ssize_t nread;
-    uint32_t line_no = 0;
+    uint32_t line_no = 1;
 
-    while ((nread = getline(&buf, &cap, fp)) != -1) {
+    while ((nread = getline(&buffer, &cap, fp)) != -1) {
         size_t len = (size_t)nread;
-        strip_newline(buf, &len);
+        strip_newline(buffer, &len);
 
         if (len != 0) {
-            phuck_off_log(PHUCK_OFF_LOG_LEVEL_TRACE, "func at line %d: %s", line_no, buf);
-            xdebug_hash_add(h, buf, (int)len, (void*)(uintptr_t)line_no);
+            phuck_off_log(PHUCK_OFF_LOG_LEVEL_TRACE, "func at line %d: %s", line_no, buffer);
+
+            // wkpo aqui would make sense to check that < PHUCK_OFF_MAX_FUNC_NAME_LEN; then we can remove the error log below!!
+
+            xdebug_hash_add(h, buffer, (int)len, (void*)(uintptr_t)line_no);
         }
 
         line_no++;
     }
-    free(buf);
+    free(buffer);
 
     fclose(fp);
     return h;
+}
+
+static void init_handler(void) {
+    handler.funcs = build_funcs_hash();
+
+    handler.initialized = handler.funcs != NULL;
+}
+
+static void shutdown_handler(void) {
+    if (handler.funcs != NULL) {
+        xdebug_hash_destroy(handler.funcs);
+        handler.funcs = NULL;
+    }
+    handler.initialized = 0;
+}
+
+static inline const int normalize_func_name(xdebug_func f, char buffer[PHUCK_OFF_MAX_FUNC_NAME_LEN]) {
+    int n = 0;
+    switch (f.type) {
+        case XFUNC_NORMAL:
+            n = snprintf(buffer, PHUCK_OFF_MAX_FUNC_NAME_LEN, "%s", f.function);
+            break;
+
+        case XFUNC_STATIC_MEMBER:
+        case XFUNC_MEMBER:
+            const char* cls;
+            const char* fn;
+            int log_warning = 0;
+
+            if (f.class) {
+                cls = f.class;
+            } else {
+                cls = "?";
+                log_warning = 1;
+            }
+            if (f.function) {
+                fn = f.function;
+            } else {
+                fn = "?";
+                log_warning = 1;
+            }
+
+            n = snprintf(buffer, PHUCK_OFF_MAX_FUNC_NAME_LEN, "%s::%s", cls, fn);
+
+            if (log_warning) {
+                phuck_off_log(PHUCK_OFF_LOG_LEVEL_WARN, "function \"%s\" missing class or name", buffer);
+            }
+
+            break;
+    }
+
+    if (n >= PHUCK_OFF_MAX_FUNC_NAME_LEN) {
+        phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "normalized function name \"%s\" too long (total length %d)", buffer, n);
+        n = 0;
+    }
+
+    buffer[n] = '\0';
+
+    if (n) {
+        for (char* p = buffer; *p; p++) {
+            *p = (char) tolower((unsigned char)*p);
+        }
+    }
+
+    return n;
+}
+
+void phuck_off_handle_stack_function(xdebug_func f) {
+    if (!handler.initialized) return;
+
+    char name[PHUCK_OFF_MAX_FUNC_NAME_LEN];
+    const int name_len = normalize_func_name(f, name);
+
+    if (name_len == 0) return;
+
+    void *val = NULL;
+    int line_no = -1;
+    if (xdebug_hash_find(handler.funcs, name, (unsigned int) name_len, &val)) {
+        line_no = (int)((uintptr_t)val);
+    }
+
+    phuck_off_log(PHUCK_OFF_LOG_LEVEL_DEBUG, "function \"%s\" => line %d", name, line_no);
 }
 
 /***********************
@@ -215,17 +306,11 @@ static xdebug_hash* build_funcs_hash(void)
 
 void phuck_off_init(void) {
     init_logger();
-
-    build_funcs_hash(); // wkpo pas la jeter la....
-
-    // wkpo
+    init_handler();
 }
 
 void phuck_off_shutdown(void) {
-    // wkpo
-
-    // wkpo free the map...
-
+    shutdown_handler();
     shutdown_logger();
 }
 

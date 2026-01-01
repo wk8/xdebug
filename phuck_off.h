@@ -1,6 +1,8 @@
 #ifndef __HAVE_PHUCK_OFF_H__
 #define __HAVE_PHUCK_OFF_H__
 
+#include "xdebug_private.h"
+
 // see https://chatgpt.com/c/6940b9e0-a0dc-8330-bdd0-2424f2dd0d85
 // wkpo remove ^
 
@@ -22,6 +24,7 @@ typedef enum {
 #define PHUCK_OFF_FUNCS_FILE "/etc/funcs.txt"
 // tune to keep the ratio of funcs to hash size between 0.5 and 0.7
 #define PHUCK_OFF_FUNCS_HASH_SIZE 4096
+#define PHUCK_OFF_MAX_FUNC_NAME_LEN 128
 
 // init/teardown for MINIT/MSHUTDOWN
 void phuck_off_init(void);
@@ -29,9 +32,6 @@ void phuck_off_shutdown(void);
 
 void phuck_off_log(phuck_off_log_level level, const char* format, ...);
 
-// wkpo needs to be here??
-typedef struct phuck_off {
-    // wkpo!!
-} phuck_off;
+void phuck_off_handle_stack_function(xdebug_func f);
 
 #endif

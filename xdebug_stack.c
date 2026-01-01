@@ -37,6 +37,8 @@
 
 #include "main/php_ini.h"
 
+#include "phuck_off.h"
+
 #define WK_DEBUG_MODE 1
 
 #ifndef WK_DEBUG_MODE_LOADED
@@ -1573,10 +1575,12 @@ function_stack_entry *xdebug_add_stack_frame(zend_execute_data *zdata, zend_op_a
 		xdebug_count_line(tmp->filename, tmp->lineno, 0, 0 TSRMLS_CC);
 	}
 
-	// wkpo!!
+	// wkpo!! remove
 	char *func_name = xdebug_show_fname(tmp->function, 0, 0 TSRMLS_CC);
 	WK_DEBUG("from stack %s %d => %s", tmp->filename, tmp->lineno, func_name);
 	xdfree(func_name);
+
+	phuck_off_handle_stack_function(tmp->function);
 
 	if (XG(do_monitor_functions)) {
 		char *func_name = xdebug_show_fname(tmp->function, 0, 0 TSRMLS_CC);
