@@ -886,6 +886,8 @@ PHP_MINIT_FUNCTION(xdebug)
 	XG(breakpoint_count) = 0;
 	XG(output_is_tty) = OUTPUT_NOT_CHECKED;
 
+	// wkpo aqui on lit/build
+
 	return SUCCESS;
 }
 
@@ -1041,6 +1043,9 @@ PHP_MSHUTDOWN_FUNCTION(xdebug)
 			}
 		}
 	}
+
+	// wkpo aqui on destroy
+
 	return SUCCESS;
 }
 

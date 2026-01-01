@@ -1,3 +1,5 @@
+// wkpo idea: have a xdebug_2_5 branch in my repo (should be kept up to date with upstream 2.5),
+
 /*
    +----------------------------------------------------------------------+
    | Xdebug                                                               |
