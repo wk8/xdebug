@@ -1,11 +1,20 @@
-/*
- * wkpo questions:
- *  - do xdebug func pointers remain the same? can i use that for caching IDs?
- */
+// wkpo remove
+// gcc wk.c && ./a.out
 
-/******************
- * LOGGER SECTION *
- ******************/
+typedef enum {
+    PHUCK_OFF_LOG_LEVEL_TRACE = 0,
+    PHUCK_OFF_LOG_LEVEL_DEBUG = 1,
+    PHUCK_OFF_LOG_LEVEL_INFO  = 2,
+    PHUCK_OFF_LOG_LEVEL_WARN  = 3,
+    PHUCK_OFF_LOG_LEVEL_ERROR = 4,
+    PHUCK_OFF_LOG_LEVEL_DISABLED = 5
+} phuck_off_log_level;
+
+#define PHUCK_OFF_DEFAULT_LOG_LEVEL    PHUCK_OFF_LOG_LEVEL_INFO
+#define PHUCK_OFF_LOG_FILE             "/tmp/phuck-off.log"
+#define PHUCK_OFF_LOG_LEVEL_ENV_VAR    "PHUCK_OFF_LOG_LEVEL"
+#define PHUCK_OFF_MAX_LOG_LINE_LEN     2048 // wkpo test with truncated??
+#define PHUCK_OFF_TRUNCATED_LOG_MARKER " ... (truncated)"
 
 typedef struct phuck_off_logger {
     phuck_off_log_level level;
@@ -118,18 +127,10 @@ void phuck_off_log(phuck_off_log_level level, const char* format, ...) {
     write(logger.fd, buffer, n);
 }
 
-/*************************
- * END OF LOGGER SECTION *
- *************************/
 
-void phuck_off_init(void) {
-    init_logger();
 
-    // wkpo
-}
-
-void phuck_off_shutdown(void) {
-    // wkpo
-
-    shutdown_logger();
+int main() {
+	init_logger();
+  phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "coucou %d %s", 42, "WK(wk)");
+  shutdown_logger();
 }
