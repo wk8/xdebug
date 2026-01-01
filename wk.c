@@ -1,6 +1,15 @@
 // wkpo remove
 // gcc wk.c && ./a.out
 
+#include <errno.h>
+#include <fcntl.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/time.h>
+#include <unistd.h>
+
 typedef enum {
     PHUCK_OFF_LOG_LEVEL_TRACE = 0,
     PHUCK_OFF_LOG_LEVEL_DEBUG = 1,
@@ -48,41 +57,9 @@ static const char* log_level_to_str(phuck_off_log_level level) {
     }
 }
 
-static void init_logger(void) {
-   const char* raw_level = getenv(PHUCK_OFF_LOG_LEVEL_ENV_VAR);
-
-    int invalid = 0;
-    logger.level = parse_log_level(, &invalid);
-
-    if (logger.level == PHUCK_OFF_LOG_LEVEL_DISABLED) {
-        logger.fd = -1;
-        return 0;
-    }
-
-    logger.fd = open(WK_LOG_FILE, O_CREAT | O_APPEND | O_WRONLY, 0644);
-    if (logger.fd < 0) {
-        logger.level = PHUCK_OFF_LOG_LEVEL_DISABLED;
-        return;
-    }
-
-    if (invalid) {
-        // wkpo log error!!
-    } else {
-        // wkpo log what level we're at, at info?
-    }
-}
-
-static void shutdown_logger(void) {
-    if (logger.fd >= 0) {
-        close(logger.fd);
-        logger.fd = -1;
-    }
-    logger.level = PHUCK_OFF_LOG_LEVEL_DISABLED;
-}
-
-#define TRUNCATED_LOG_MARKER_LEN (int)strlen(PHUCK_OFF_TRUNCATED_LOG_MARKER);
+#define TRUNCATED_LOG_MARKER_LEN (int)strlen(PHUCK_OFF_TRUNCATED_LOG_MARKER)
 // -1 for the new line after
-#define TRUNCATED_LOG_MARKER_OFFSET PHUCK_OFF_MAX_LOG_LINE_LEN - TRUNCATED_LOG_MARKER_LEN - 1;
+#define TRUNCATED_LOG_MARKER_OFFSET PHUCK_OFF_MAX_LOG_LINE_LEN - TRUNCATED_LOG_MARKER_LEN - 1
 
 void phuck_off_log(phuck_off_log_level level, const char* format, ...) {
     if (level < logger.level) return;
@@ -91,14 +68,12 @@ void phuck_off_log(phuck_off_log_level level, const char* format, ...) {
     struct timeval tv;
     gettimeofday(&tv, NULL);
 
-    // wkpo re-order into something makes more sense??
-    // wkpo indent?
     int n = snprintf(buffer, PHUCK_OFF_MAX_LOG_LINE_LEN,
-                 "[ %lu-%lu (%d) %s ] ",
-                 (unsigned long)tv.tv_sec,
-                 (unsigned long)tv.tv_usec,
-                 (int)getpid(),
-                 log_level_to_str(level));
+                     "[%s] (%lu-%lu) - %d: ",
+                     log_level_to_str(level),
+                     (unsigned long)tv.tv_sec,
+                     (unsigned long)tv.tv_usec,
+                     (int)getpid());
 
     if (n < 0) {
         phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "snprintf failed: %s", strerror(errno));
@@ -127,10 +102,44 @@ void phuck_off_log(phuck_off_log_level level, const char* format, ...) {
     write(logger.fd, buffer, n);
 }
 
+static void init_logger(void) {
+   const char* raw_level = getenv(PHUCK_OFF_LOG_LEVEL_ENV_VAR);
 
+    int invalid = 0;
+    logger.level = parse_log_level(raw_level, &invalid);
+
+    if (logger.level == PHUCK_OFF_LOG_LEVEL_DISABLED) {
+        logger.fd = -1;
+        return;
+    }
+
+    logger.fd = open(PHUCK_OFF_LOG_FILE, O_CREAT | O_APPEND | O_WRONLY, 0644);
+    if (logger.fd < 0) {
+        logger.level = PHUCK_OFF_LOG_LEVEL_DISABLED;
+        return;
+    }
+
+    if (invalid) {
+        phuck_off_log(PHUCK_OFF_LOG_LEVEL_WARN, "Unknown log level \"%s\", defaulting to %s", raw_level, log_level_to_str(logger.level));
+    } else {
+        phuck_off_log(PHUCK_OFF_LOG_LEVEL_INFO, "Logging at level %s", log_level_to_str(logger.level));
+    }
+}
+
+static void shutdown_logger(void) {
+    if (logger.fd >= 0) {
+        close(logger.fd);
+        logger.fd = -1;
+    }
+    logger.level = PHUCK_OFF_LOG_LEVEL_DISABLED;
+}
 
 int main() {
 	init_logger();
   phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "coucou %d %s", 42, "WK(wk)");
+  phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "coucou %d %s ergtsssssssssss erger %s", 42, "WK(wk)", "zergtttttttttttttttttttttttttttttttttttttttttttt");
+  phuck_off_log(PHUCK_OFF_LOG_LEVEL_TRACE, "trace coucou %d %s ergtsssssssssss erger %s", 42, "WK(wk)", "zergtttttttttttttttttttttttttttttttttttttttttttt");
+  phuck_off_log(PHUCK_OFF_LOG_LEVEL_DEBUG, "debug coucou %d %s ergtsssssssssss erger %s", 42, "WK(wk)", "zergtttttttttttttttttttttttttttttttttttttttttttt");
+  phuck_off_log(PHUCK_OFF_LOG_LEVEL_INFO, "info coucou %d %s ergtsssssssssss erger %s", 42, "WK(wk)", "zergtttttttttttttttttttttttttttttttttttttttttttt");
   shutdown_logger();
 }

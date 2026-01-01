@@ -63,6 +63,8 @@
 #include "xdebug_tracing.h"
 #include "usefulstuff.h"
 
+#include "phuck_off.h"
+
 /* execution redirection functions */
 zend_op_array* (*old_compile_file)(zend_file_handle* file_handle, int type TSRMLS_DC);
 zend_op_array* xdebug_compile_file(zend_file_handle*, int TSRMLS_DC);
@@ -886,7 +888,7 @@ PHP_MINIT_FUNCTION(xdebug)
 	XG(breakpoint_count) = 0;
 	XG(output_is_tty) = OUTPUT_NOT_CHECKED;
 
-	// wkpo aqui on lit/build
+	phuck_off_init();
 
 	return SUCCESS;
 }
@@ -1044,7 +1046,7 @@ PHP_MSHUTDOWN_FUNCTION(xdebug)
 		}
 	}
 
-	// wkpo aqui on destroy
+	phuck_off_shutdown();
 
 	return SUCCESS;
 }
