@@ -6,11 +6,14 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
 #include <unistd.h>
+
+#include "xdebug_hash.h"
 
 #include "phuck_off.h"
 
@@ -47,6 +50,23 @@ static const char* log_level_to_str(phuck_off_log_level level) {
         case PHUCK_OFF_LOG_LEVEL_WARN: return "warn";
         case PHUCK_OFF_LOG_LEVEL_ERROR: return "error";
         default: return "disabled";
+    }
+}
+
+static inline void write_best_effort(int fd, const char* buf, size_t len)
+{
+    while (len > 0) {
+        ssize_t rc = write(fd, buf, len);
+        if (rc > 0) {
+            buf += rc;
+            len -= (size_t)rc;
+            continue;
+        }
+        if (rc < 0 && errno == EINTR) {
+            continue;
+        }
+        // any other error we just stop
+        break;
     }
 }
 
@@ -92,7 +112,7 @@ void phuck_off_log(phuck_off_log_level level, const char* format, ...) {
     }
 
     buffer[n++] = '\n';
-    write(logger.fd, buffer, n);
+    write_best_effort(logger.fd, buffer, (size_t)n);
 }
 
 static void init_logger(void) {
@@ -131,8 +151,72 @@ static void shutdown_logger(void) {
  * END OF LOGGER SECTION *
  *************************/
 
+/****************
+ * MAIN SECTION *
+ *****************/
+
+static void strip_newline(char* s, size_t* len) {
+    while (*len > 0) {
+        char c = s[*len - 1];
+        if (c != '\n' && c != '\r') {
+            return;
+        }
+
+        s[--(*len)] = '\0';
+    }
+}
+
+static xdebug_hash* build_funcs_hash(void)
+{
+    phuck_off_log(PHUCK_OFF_LOG_LEVEL_INFO, "reading funcs from %s", PHUCK_OFF_FUNCS_FILE);
+
+    FILE* fp = fopen("/etc/funcs.txt", "rb");
+    if (!fp) {
+        phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "failed to read funcs from %s", PHUCK_OFF_FUNCS_FILE);
+        return NULL;
+    }
+
+    xdebug_hash* h = xdebug_hash_alloc(PHUCK_OFF_FUNCS_HASH_SIZE, NULL);
+    if (!h) {
+        phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "unable to build hash map");
+        fclose(fp);
+        return NULL;
+    }
+
+    char* buf = NULL;
+    size_t cap = 0;
+    ssize_t nread;
+    uint32_t line_no = 0;
+
+    while ((nread = getline(&buf, &cap, fp)) != -1) {
+        size_t len = (size_t)nread;
+        strip_newline(buf, &len);
+
+        if (len != 0) {
+            phuck_off_log(PHUCK_OFF_LOG_LEVEL_TRACE, "func at line %d: %s", line_no, buf);
+            xdebug_hash_add(h, buf, (int)len, (void*)(uintptr_t)line_no);
+        }
+
+        line_no++;
+    }
+    free(buf);
+
+    fclose(fp);
+    return h;
+}
+
+/***********************
+ * END OF MAIN SECTION *
+ ***********************/
+
+/*************************
+ * INIT/SHUTDOWN SECTION *
+ *************************/
+
 void phuck_off_init(void) {
     init_logger();
+
+    build_funcs_hash(); // wkpo pas la jeter la....
 
     // wkpo
 }
@@ -140,5 +224,11 @@ void phuck_off_init(void) {
 void phuck_off_shutdown(void) {
     // wkpo
 
+    // wkpo free the map...
+
     shutdown_logger();
 }
+
+/********************************
+ * END OF INIT/SHUTDOWN SECTION *
+ ********************************/
