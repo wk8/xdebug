@@ -1545,6 +1545,19 @@ function_stack_entry *xdebug_add_stack_frame(zend_execute_data *zdata, zend_op_a
         	int line_start = oa->line_start;
         	int line_end   = oa->line_end;
     		phuck_off_log(PHUCK_OFF_LOG_LEVEL_INFO, "func is user function %s:%d-%d", filename, line_start, line_end);
+
+			const int wkpo_hash = line_start * 7919 + line_end;
+
+			const int reserved_idx = XG(phuck_off_tracker_offset);
+			uintptr_t raw = (uintptr_t)(oa->reserved[reserved_idx]);
+    		if (raw == 0) {
+        		oa->reserved[reserved_idx] = (void *)(uintptr_t)wkpo_hash;
+				phuck_off_log(PHUCK_OFF_LOG_LEVEL_INFO, "wkpo caching! set to %d", wkpo_hash);
+    		} else {
+				// already cached
+				const int cached = (int)raw;
+				phuck_off_log(PHUCK_OFF_LOG_LEVEL_INFO, "wkpo caching! expected %d vs cached %d", wkpo_hash, cached);
+			}
     	} else if (!func) {
     		phuck_off_log(PHUCK_OFF_LOG_LEVEL_INFO, "func is null");
     	} else {

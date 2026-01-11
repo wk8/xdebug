@@ -203,7 +203,6 @@ ZEND_BEGIN_MODULE_GLOBALS(xdebug)
 	} branches;
 
 	/* phuck-off section */
-	// wkpo used?
 	int phuck_off_tracker_offset;
 
 	/* used for collection errors */
