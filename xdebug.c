@@ -1270,6 +1270,9 @@ PHP_RINIT_FUNCTION(xdebug)
 	XG(functions_to_monitor) = NULL;
 	XG(monitored_functions_found) = xdebug_llist_alloc(xdebug_monitored_function_dtor);
 	XG(dead_code_analysis_tracker_offset) = zend_xdebug_global_offset;
+
+	phuck_off_log(PHUCK_OFF_LOG_LEVEL_INFO, "PHP_RINIT_FUNCTION zend_xdebug_global_offset = %d", zend_xdebug_global_offset);
+
 	XG(dead_code_last_start_id) = 1;
 	XG(previous_filename) = "";
 	XG(previous_file) = NULL;
