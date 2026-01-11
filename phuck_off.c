@@ -228,7 +228,7 @@ static void shutdown_handler(void) {
     handler.initialized = 0;
 }
 
-static inline const int normalize_func_name(xdebug_func f, char buffer[PHUCK_OFF_MAX_FUNC_NAME_LEN]) {
+static inline int normalize_func_name(xdebug_func f, char buffer[PHUCK_OFF_MAX_FUNC_NAME_LEN]) {
     int n = 0;
     switch (f.type) {
         case XFUNC_NORMAL:
@@ -236,7 +236,7 @@ static inline const int normalize_func_name(xdebug_func f, char buffer[PHUCK_OFF
             break;
 
         case XFUNC_STATIC_MEMBER:
-        case XFUNC_MEMBER:
+        case XFUNC_MEMBER: {
             const char* cls;
             const char* fn;
             int log_warning = 0;
@@ -261,6 +261,7 @@ static inline const int normalize_func_name(xdebug_func f, char buffer[PHUCK_OFF
             }
 
             break;
+		}
     }
 
     if (n >= PHUCK_OFF_MAX_FUNC_NAME_LEN) {
