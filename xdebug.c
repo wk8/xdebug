@@ -442,6 +442,9 @@ static void php_xdebug_init_globals (zend_xdebug_globals *xg TSRMLS_DC)
 	xg->dead_code_analysis_tracker_offset = zend_xdebug_global_offset;
 	xg->dead_code_last_start_id = 1;
 
+	/* and for phuck-off as well */
+	// wkpo???
+
 	/* Override header generation in SAPI */
 	if (sapi_module.header_handler != xdebug_header_handler) {
 		xdebug_orig_header_handler = sapi_module.header_handler;

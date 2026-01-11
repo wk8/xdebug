@@ -1580,6 +1580,26 @@ function_stack_entry *xdebug_add_stack_frame(zend_execute_data *zdata, zend_op_a
 	WK_DEBUG("from stack %s %d => %s", tmp->filename, tmp->lineno, func_name);
 	xdfree(func_name);
 
+	// wkpo!! remove!!
+	if (zdata) {
+	    zend_function *func = zdata->function_state.function;
+
+    	if (func && func->type == ZEND_USER_FUNCTION) {
+        	zend_op_array *oa = &func->op_array;
+
+        	const char *filename = oa->filename ? oa->filename : "<no filename!!>";
+        	int line_start = oa->line_start;
+        	int line_end   = oa->line_end;
+    		WK_DEBUG("func is user function %s:%d-%d", filename, line_start, line_end);
+    	} else if (!func) {
+    		WK_DEBUG("func is null");
+    	} else {
+    		WK_DEBUG("func type is %d", func->type);
+        }
+    } else {
+        WK_DEBUG("zdata is null");
+    }
+
 	phuck_off_handle_stack_function(tmp->function);
 
 	if (XG(do_monitor_functions)) {

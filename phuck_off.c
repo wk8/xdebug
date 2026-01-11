@@ -294,6 +294,9 @@ void phuck_off_handle_stack_function(xdebug_func f) {
     }
 
     phuck_off_log(PHUCK_OFF_LOG_LEVEL_DEBUG, "function \"%s\" => line %d", name, line_no);
+
+    // wkpo NEXT: cache the lookup in op_array, see the last 3-4 items of
+    // https://chatgpt.com/c/6940b9e0-a0dc-8330-bdd0-2424f2dd0d85
 }
 
 /***********************
