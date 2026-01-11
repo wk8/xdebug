@@ -39,52 +39,6 @@
 
 #include "phuck_off.h"
 
-#define WK_DEBUG_MODE 1
-
-#ifndef WK_DEBUG_MODE_LOADED
-#define WK_DEBUG_MODE_LOADED
-
-#if WK_DEBUG_MODE
-
-#include <sys/time.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <sys/time.h>
-#include <stdio.h>
-#include <stdarg.h>
-#include <string.h>
-#define WK_DEBUG_LOG_FILE "/tmp/wk_debug.log"
-
-void wk_debug(const char *format, ...)
-{
-	FILE *f ;
-	va_list args;
-	struct timeval tv;
-
-	f = fopen(WK_DEBUG_LOG_FILE, "a+");
-
-	// OR
-	// char filename[200];
-	// sprintf(filename, "/tmp/wk_debug-%d.log", (int) getpid());
-	// f = fopen(filename, "a+");
-
-	gettimeofday(&tv, NULL);
-	fprintf(f, "[ %lu-%lu (%d) ] ", (unsigned long)tv.tv_sec, (unsigned long)tv.tv_usec, (int) getpid());
-	va_start(args, format);
-	vfprintf(f, format, args);
-	fprintf(f, "\n");
-	va_end(args);
-	fclose(f);
-}
-
-#define WK_DEBUG(format, ...) wk_debug(format, ##__VA_ARGS__)
-
-#else
-#define WK_DEBUG(format, ...)
-#endif
-#endif
-
-
 ZEND_EXTERN_MODULE_GLOBALS(xdebug)
 
 static char* text_formats[11] = {
@@ -1577,7 +1531,7 @@ function_stack_entry *xdebug_add_stack_frame(zend_execute_data *zdata, zend_op_a
 
 	// wkpo!! remove
 	char *func_name = xdebug_show_fname(tmp->function, 0, 0 TSRMLS_CC);
-	WK_DEBUG("from stack %s %d => %s", tmp->filename, tmp->lineno, func_name);
+	phuck_off_log(PHUCK_OFF_LOG_LEVEL_INFO, "from stack %s %d => %s", tmp->filename, tmp->lineno, func_name);
 	xdfree(func_name);
 
 	// wkpo!! remove!!
@@ -1590,14 +1544,14 @@ function_stack_entry *xdebug_add_stack_frame(zend_execute_data *zdata, zend_op_a
         	const char *filename = oa->filename ? oa->filename : "<no filename!!>";
         	int line_start = oa->line_start;
         	int line_end   = oa->line_end;
-    		WK_DEBUG("func is user function %s:%d-%d", filename, line_start, line_end);
+    		phuck_off_log(PHUCK_OFF_LOG_LEVEL_INFO, "func is user function %s:%d-%d", filename, line_start, line_end);
     	} else if (!func) {
-    		WK_DEBUG("func is null");
+    		phuck_off_log(PHUCK_OFF_LOG_LEVEL_INFO, "func is null");
     	} else {
-    		WK_DEBUG("func type is %d", func->type);
+    		phuck_off_log(PHUCK_OFF_LOG_LEVEL_INFO, "func type is %d", func->type);
         }
     } else {
-        WK_DEBUG("zdata is null");
+        phuck_off_log(PHUCK_OFF_LOG_LEVEL_INFO, "zdata is null");
     }
 
 	phuck_off_handle_stack_function(tmp->function);
