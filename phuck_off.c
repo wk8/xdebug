@@ -1,7 +1,4 @@
-/*
- * wkpo questions:
- *  - do xdebug func pointers remain the same? can i use that for caching IDs?
- */
+// wkpo use php_log_err when we can't log???
 
 #include <ctype.h>
 #include <errno.h>
@@ -157,7 +154,12 @@ static void shutdown_logger(void) {
 
 typedef struct phuck_off {
     int initialized;
-    xdebug_hash* funcs;
+	// the root of where the user defined code lives,
+	// as set by the func dumper
+	char* user_code_root;
+    // maps each absolute file path to a xdebug_set* containing,
+    // its functions' line numbers, or NULL if the file is ignored
+    xdebug_hash* files;
 } phuck_off;
 
 static phuck_off handler = { 0, NULL };
@@ -172,6 +174,65 @@ static void strip_newline(char* s, size_t* len) {
         s[--(*len)] = '\0';
     }
 }
+
+#define PHUCK_OFF_FUNCS_PATH "/etc/funcs.txt"
+
+typedef void (*parse_line_cb)(uint32_t line_no, const char *line, size_t len, void *user_data);
+
+static int parse_line_by_line(parse_line_cb cb, void *user_data) {
+    FILE* fp = fopen(PHUCK_OFF_FUNCS_PATH, "rb");
+    if (!fp) {
+        phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "failed to read funcs from %s", PHUCK_OFF_FUNCS_FILE);
+        return -1;
+    }
+
+    char* buffer = NULL;
+    size_t cap = 0;
+    ssize_t nread;
+    uint32_t line_no = 1;
+
+    while ((nread = getline(&buffer, &cap, fp)) != -1) {
+        size_t len = (size_t)nread;
+        strip_newline(buffer, &len);
+
+		cb(line_no, buffer, len, user_data);
+
+        line_no++;
+    }
+
+    free(buffer);
+    fclose(fp);
+
+	return 0;
+}
+
+// returns a hash mapping name files to the # of functions in this file
+static xdebug_hash* parse_dumper_output_first_pass(void) {
+
+}
+
+static parse_dumper_output(void) {
+	phuck_off_log(PHUCK_OFF_LOG_LEVEL_INFO, "parsing dumper output from %s", PHUCK_OFF_FUNCS_FILE);
+
+
+}
+
+typedef struct resizable_hash {
+    xdebug_hash *hash;
+    int count;
+} resizable_hash;
+
+
+
+
+
+
+
+// wkpo oldies below
+// wkpo oldies below
+// wkpo oldies below
+// wkpo oldies below
+
 
 static xdebug_hash* build_funcs_hash(void) {
     phuck_off_log(PHUCK_OFF_LOG_LEVEL_INFO, "reading funcs from %s", PHUCK_OFF_FUNCS_FILE);
@@ -290,7 +351,7 @@ void phuck_off_handle_stack_function(xdebug_func f) {
 
     void *val = NULL;
     int line_no = -1;
-    if (xdebug_hash_find(handler.funcs, name, (unsigned int) name_len, &val)) {
+    if (xdebug_hash_find(handler.funcs, name, (unsigned int)name_len, &val)) {
         line_no = (int)((uintptr_t)val);
     }
 
