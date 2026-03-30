@@ -3,6 +3,7 @@
 
 #include "xdebug_private.h"
 #include "phuck_off_logger.h"
+#include "phuck_off_mmap.h"
 
 // init/teardown for MINIT/MSHUTDOWN
 void phuck_off_init(void);
