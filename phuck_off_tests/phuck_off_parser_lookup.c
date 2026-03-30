@@ -254,7 +254,7 @@ static int init_handler_from_file(const char *path)
 		return 0;
 	}
 
-	normalize_user_code_root();
+	handler.user_code_root_len = strlen(handler.user_code_root);
 	handler.initialized = 1;
 	return 1;
 }

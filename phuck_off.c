@@ -29,26 +29,17 @@ typedef struct phuck_off {
 
 static phuck_off handler = { 0, NULL, 0, NULL };
 
-static void normalize_user_code_root(void)
-{
-    handler.user_code_root_len = strlen(handler.user_code_root);
-    while (handler.user_code_root_len > 1 && handler.user_code_root[handler.user_code_root_len - 1] == '/') {
-        handler.user_code_root[--handler.user_code_root_len] = '\0';
-    }
-}
-
 static int function_id(const char *path, const int line_no) {
     size_t path_len;
     void *file_entry;
     void *line_entry = NULL;
     xdebug_hash *line_map;
 
-    if (strncmp(path, handler.user_code_root, handler.user_code_root_len) != 0) {
-        return -1;
-    }
-
-    if (path[handler.user_code_root_len] != '\0'
-        && path[handler.user_code_root_len] != '/') {
+    if (strncmp(path, handler.user_code_root, handler.user_code_root_len) != 0
+        || path[handler.user_code_root_len] == '\0'
+        || path[handler.user_code_root_len] != '/'
+    ) {
+        // not part of the directory we care about
         return -1;
     }
 
@@ -94,7 +85,7 @@ static void init_handler(void) {
         return;
     }
 
-    normalize_user_code_root();
+    handler.user_code_root_len = strlen(handler.user_code_root);
     handler.initialized = 1;
 }
 

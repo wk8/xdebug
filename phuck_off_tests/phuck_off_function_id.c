@@ -59,7 +59,7 @@ static void setup_handler(const char *root)
 	handler.files = xdebug_hash_alloc(8, destroy_file_entry);
 	assert_true(handler.files != NULL, "failed to allocate outer files hash");
 	handler.user_code_root = dup_string(root);
-	normalize_user_code_root();
+	handler.user_code_root_len = strlen(handler.user_code_root);
 	handler.initialized = 1;
 }
 
@@ -92,7 +92,7 @@ static void run_user_root_case(void)
 	const char *ignored_path = "/tmp/user/code/ignored.php";
 
 	reset_test_handler();
-	setup_handler("/tmp/user/code///");
+	setup_handler("/tmp/user/code");
 	line_map = add_line_map(main_path);
 	if (!line_map) {
 		return;
