@@ -62,6 +62,7 @@ static int function_id(const char *path, const int line_no) {
     }
 
     if (file_entry == NULL) {
+        // means we ignore this file
         return -1;
     }
 
