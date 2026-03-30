@@ -1,7 +1,16 @@
 #ifndef __HAVE_PHUCK_OFF_H__
 #define __HAVE_PHUCK_OFF_H__
 
+#ifdef PHUCK_OFF_STANDALONE_TEST
+typedef struct _xdebug_func {
+	char *class;
+	char *function;
+	int   type;
+	int   internal;
+} xdebug_func;
+#else
 #include "xdebug_private.h"
+#endif
 
 // see https://chatgpt.com/c/6940b9e0-a0dc-8330-bdd0-2424f2dd0d85
 // wkpo remove ^

@@ -26,6 +26,15 @@ typedef struct phuck_off {
 
 static phuck_off handler = { 0, NULL, NULL };
 
+static int function_id(const char *path, const int line_no) {
+    // this should:
+    // 1. check if path starts with user_code_root, if not, just return -1; pay attention to null chars there
+    // 2. get the inner hash for path from files; if that key is not there, return -1 and log an error with our own logger
+    // 3. if the associated value is NULL, return -1, that's normal, just means this file is ignored
+    // 4. otherwise look for the line_no in the inner hash
+    // 5. if it's there, return that. if not, return -1 and log an error
+}
+
 
 /***********************
  * END OF MAIN SECTION *
