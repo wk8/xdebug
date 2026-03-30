@@ -21,7 +21,10 @@ typedef enum {
 #define PHUCK_OFF_MAX_LOG_LINE_LEN     2048 // wkpo test with truncated??
 #define PHUCK_OFF_TRUNCATED_LOG_MARKER " ... (truncated)"
 
-#define PHUCK_OFF_FUNCS_FILE "/etc/funcs.txt"
+#ifndef PHUCK_OFF_FUNCS_PATH
+#define PHUCK_OFF_FUNCS_PATH "/etc/funcs.txt"
+#endif
+#define PHUCK_OFF_FUNCS_FILE PHUCK_OFF_FUNCS_PATH
 // tune to keep the ratio of funcs to hash size between 0.5 and 0.7
 #define PHUCK_OFF_FUNCS_HASH_SIZE 4096
 #define PHUCK_OFF_MAX_FUNC_NAME_LEN 128
