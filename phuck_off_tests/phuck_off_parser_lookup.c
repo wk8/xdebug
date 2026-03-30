@@ -255,7 +255,6 @@ static int init_handler_from_file(const char *path)
 	}
 
 	normalize_user_code_root();
-	reset_path_cache();
 	handler.initialized = 1;
 	return 1;
 }

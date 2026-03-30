@@ -51,8 +51,6 @@ static void reset_test_handler(void)
 	}
 
 	handler.user_code_root_len = 0;
-	handler.user_code_root_is_root = 0;
-	reset_path_cache();
 	handler.initialized = 0;
 }
 
@@ -62,7 +60,6 @@ static void setup_handler(const char *root)
 	assert_true(handler.files != NULL, "failed to allocate outer files hash");
 	handler.user_code_root = dup_string(root);
 	normalize_user_code_root();
-	reset_path_cache();
 	handler.initialized = 1;
 }
 
@@ -125,12 +122,12 @@ static void run_user_root_case(void)
 	assert_true(function_id(main_path, 0) == -1, "line 0 should return -1");
 }
 
-static void run_root_slash_case(void)
+static void run_root_prefix_case(void)
 {
 	xdebug_hash *line_map;
 
 	reset_test_handler();
-	setup_handler("/");
+	setup_handler("/tmp");
 	line_map = add_line_map("/tmp/anywhere.php");
 	if (!line_map) {
 		return;
@@ -138,15 +135,16 @@ static void run_root_slash_case(void)
 
 	assert_true(
 		xdebug_hash_index_add(line_map, 7, (void *) (uintptr_t) 91),
-		"failed to add root-slash function id"
+		"failed to add root-prefix function id"
 	);
-	assert_true(function_id("/tmp/anywhere.php", 7) == 91, "root slash should match any absolute path");
+	assert_true(function_id("/tmp/anywhere.php", 7) == 91, "root prefix should match descendant path");
+	assert_true(function_id("/tmpx/anywhere.php", 7) == -1, "root prefix should not match sibling prefix");
 }
 
 int main(void)
 {
 	run_user_root_case();
-	run_root_slash_case();
+	run_root_prefix_case();
 	reset_test_handler();
 
 	if (failures) {

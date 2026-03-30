@@ -22,15 +22,12 @@ typedef struct phuck_off {
     // as set by the func dumper
     char *user_code_root;
     size_t user_code_root_len;
-    int user_code_root_is_root;
     // maps each absolute file path to a xdebug_hash* mapping
     // its functions' line numbers to their line # in the input file, or NULL if the file is ignored
     xdebug_hash *files;
-    const char *last_file_path;
-    xdebug_hash *last_line_map;
 } phuck_off;
 
-static phuck_off handler = { 0, NULL, 0, 0, NULL, NULL };
+static phuck_off handler = { 0, NULL, 0, NULL };
 
 static void normalize_user_code_root(void)
 {
@@ -38,13 +35,6 @@ static void normalize_user_code_root(void)
     while (handler.user_code_root_len > 1 && handler.user_code_root[handler.user_code_root_len - 1] == '/') {
         handler.user_code_root[--handler.user_code_root_len] = '\0';
     }
-    handler.user_code_root_is_root = (handler.user_code_root_len == 1 && handler.user_code_root[0] == '/');
-}
-
-static void reset_path_cache(void)
-{
-    handler.last_file_path = NULL;
-    handler.last_line_map = NULL;
 }
 
 static int function_id(const char *path, const int line_no) {
@@ -53,24 +43,11 @@ static int function_id(const char *path, const int line_no) {
     void *line_entry = NULL;
     xdebug_hash *line_map;
 
-    if (path == handler.last_file_path) {
-        line_map = handler.last_line_map;
-        if (line_map == NULL) {
-            return -1;
-        }
-        if (!xdebug_hash_index_find(line_map, (unsigned long) line_no, &line_entry)) {
-            phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "No function id entry for \"%s\":%d", path, line_no);
-            return -1;
-        }
-        return (int) (uintptr_t) line_entry;
-    }
-
     if (strncmp(path, handler.user_code_root, handler.user_code_root_len) != 0) {
         return -1;
     }
 
-    if (!handler.user_code_root_is_root
-        && path[handler.user_code_root_len] != '\0'
+    if (path[handler.user_code_root_len] != '\0'
         && path[handler.user_code_root_len] != '/') {
         return -1;
     }
@@ -81,15 +58,12 @@ static int function_id(const char *path, const int line_no) {
         return -1;
     }
 
-    handler.last_file_path = path;
     if (file_entry == NULL) {
-        handler.last_line_map = NULL;
         // means we ignore this file
         return -1;
     }
 
     line_map = (xdebug_hash *) file_entry;
-    handler.last_line_map = line_map;
     if (!xdebug_hash_index_find(line_map, (unsigned long) line_no, &line_entry)) {
         phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "No function id entry for \"%s\":%d", path, line_no);
         return -1;
@@ -121,7 +95,6 @@ static void init_handler(void) {
     }
 
     normalize_user_code_root();
-    reset_path_cache();
     handler.initialized = 1;
 }
 
@@ -141,8 +114,6 @@ static void shutdown_handler(void) {
         handler.user_code_root = NULL;
     }
     handler.user_code_root_len = 0;
-    handler.user_code_root_is_root = 0;
-    reset_path_cache();
     handler.initialized = 0;
 }
 
