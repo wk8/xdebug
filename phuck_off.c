@@ -183,7 +183,7 @@ static phuck_off handler = { 0, NULL };
 
 #define PHUCK_OFF_FUNCS_PATH "/etc/funcs.txt"
 
-static xdebug_hash *build_path_counts(const char *input_path, unsigned long *out_unique_paths)
+// static xdebug_hash *build_path_counts(const char *input_path, unsigned long *out_unique_paths)
 
 
 // wkpo oldies below
@@ -192,221 +192,221 @@ static xdebug_hash *build_path_counts(const char *input_path, unsigned long *out
 // wkpo oldies below
 // wkpo oldies below
 
-static void strip_newline(char* s, size_t* len) {
-    while (*len > 0) {
-        char c = s[*len - 1];
-        if (c != '\n' && c != '\r') {
-            return;
-        }
-
-        s[--(*len)] = '\0';
-    }
-}
-
-
-
-typedef void (*parse_line_cb)(uint32_t line_no, const char *line, size_t len, void *user_data);
-
-static int parse_line_by_line(parse_line_cb cb, void *user_data) {
-    FILE* fp = fopen(PHUCK_OFF_FUNCS_PATH, "rb");
-    if (!fp) {
-        phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "failed to read funcs from %s", PHUCK_OFF_FUNCS_FILE);
-        return -1;
-    }
-
-    char* buffer = NULL;
-    size_t cap = 0;
-    ssize_t nread;
-    uint32_t line_no = 1;
-
-    while ((nread = getline(&buffer, &cap, fp)) != -1) {
-        size_t len = (size_t)nread;
-        strip_newline(buffer, &len);
-
-		cb(line_no, buffer, len, user_data);
-
-        line_no++;
-    }
-
-    free(buffer);
-    fclose(fp);
-
-	return 0;
-}
-
-// returns a hash mapping name files to the # of functions in this file
-static xdebug_hash* parse_dumper_output_first_pass(void) {
-
-}
-
-static parse_dumper_output(void) {
-	phuck_off_log(PHUCK_OFF_LOG_LEVEL_INFO, "parsing dumper output from %s", PHUCK_OFF_FUNCS_FILE);
-
-
-}
-
-typedef struct resizable_hash {
-    xdebug_hash *hash;
-    int count;
-} resizable_hash;
-
-
-
-
-
-
-
-// wkpo oldies below
-// wkpo oldies below
-// wkpo oldies below
-// wkpo oldies below
-
-
-static xdebug_hash* build_funcs_hash(void) {
-    phuck_off_log(PHUCK_OFF_LOG_LEVEL_INFO, "reading funcs from %s", PHUCK_OFF_FUNCS_FILE);
-
-    FILE* fp = fopen("/etc/funcs.txt", "rb");
-    if (!fp) {
-        phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "failed to read funcs from %s", PHUCK_OFF_FUNCS_FILE);
-        return NULL;
-    }
-
-    xdebug_hash* h = xdebug_hash_alloc(PHUCK_OFF_FUNCS_HASH_SIZE, NULL);
-    if (!h) {
-        phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "unable to build hash map");
-        fclose(fp);
-        return NULL;
-    }
-
-    char* buffer = NULL;
-    size_t cap = 0;
-    ssize_t nread;
-    uint32_t line_no = 1;
-
-    while ((nread = getline(&buffer, &cap, fp)) != -1) {
-        size_t len = (size_t)nread;
-        strip_newline(buffer, &len);
-
-        if (len != 0) {
-            phuck_off_log(PHUCK_OFF_LOG_LEVEL_TRACE, "func at line %d: %s", line_no, buffer);
-
-            // wkpo aqui would make sense to check that < PHUCK_OFF_MAX_FUNC_NAME_LEN; then we can remove the error log below!!
-
-            xdebug_hash_add(h, buffer, (int)len, (void*)(uintptr_t)line_no);
-        }
-
-        line_no++;
-    }
-    free(buffer);
-
-    fclose(fp);
-    return h;
-}
-
-static void init_handler(void) {
-    handler.funcs = build_funcs_hash();
-
-    handler.initialized = handler.funcs != NULL;
-}
-
-static void shutdown_handler(void) {
-    if (handler.funcs != NULL) {
-        xdebug_hash_destroy(handler.funcs);
-        handler.funcs = NULL;
-    }
-    handler.initialized = 0;
-}
-
-static inline int normalize_func_name(xdebug_func f, char buffer[PHUCK_OFF_MAX_FUNC_NAME_LEN]) {
-    int n = 0;
-    switch (f.type) {
-        case XFUNC_NORMAL:
-            n = snprintf(buffer, PHUCK_OFF_MAX_FUNC_NAME_LEN, "%s", f.function);
-            break;
-
-        case XFUNC_STATIC_MEMBER:
-        case XFUNC_MEMBER: {
-            const char* cls;
-            const char* fn;
-            int log_warning = 0;
-
-            if (f.class) {
-                cls = f.class;
-            } else {
-                cls = "?";
-                log_warning = 1;
-            }
-            if (f.function) {
-                fn = f.function;
-            } else {
-                fn = "?";
-                log_warning = 1;
-            }
-
-            n = snprintf(buffer, PHUCK_OFF_MAX_FUNC_NAME_LEN, "%s::%s", cls, fn);
-
-            if (log_warning) {
-                phuck_off_log(PHUCK_OFF_LOG_LEVEL_WARN, "function \"%s\" missing class or name", buffer);
-            }
-
-            break;
-		}
-    }
-
-    if (n >= PHUCK_OFF_MAX_FUNC_NAME_LEN) {
-        phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "normalized function name \"%s\" too long (total length %d)", buffer, n);
-        n = 0;
-    }
-
-    buffer[n] = '\0';
-
-    if (n) {
-        for (char* p = buffer; *p; p++) {
-            *p = (char) tolower((unsigned char)*p);
-        }
-    }
-
-    return n;
-}
-
-void phuck_off_handle_stack_function(xdebug_func f) {
-    if (!handler.initialized) return;
-
-    char name[PHUCK_OFF_MAX_FUNC_NAME_LEN];
-    const int name_len = normalize_func_name(f, name);
-
-    if (name_len == 0) return;
-
-    void *val = NULL;
-    int line_no = -1;
-    if (xdebug_hash_find(handler.funcs, name, (unsigned int)name_len, &val)) {
-        line_no = (int)((uintptr_t)val);
-    }
-
-    phuck_off_log(PHUCK_OFF_LOG_LEVEL_DEBUG, "function \"%s\" => line %d", name, line_no);
-
-    // wkpo NEXT: cache the lookup in op_array, see the last 3-4 items of
-    // https://chatgpt.com/c/6940b9e0-a0dc-8330-bdd0-2424f2dd0d85
-}
-
-/***********************
- * END OF MAIN SECTION *
- ***********************/
-
-/*************************
- * INIT/SHUTDOWN SECTION *
- *************************/
-
-void phuck_off_init(void) {
-    init_logger();
-    init_handler();
-}
-
-void phuck_off_shutdown(void) {
-    shutdown_handler();
-    shutdown_logger();
-}
-
-/********************************
- * END OF INIT/SHUTDOWN SECTION *
- ********************************/
+// static void strip_newline(char* s, size_t* len) {
+//     while (*len > 0) {
+//         char c = s[*len - 1];
+//         if (c != '\n' && c != '\r') {
+//             return;
+//         }
+//
+//         s[--(*len)] = '\0';
+//     }
+// }
+//
+//
+//
+// typedef void (*parse_line_cb)(uint32_t line_no, const char *line, size_t len, void *user_data);
+//
+// static int parse_line_by_line(parse_line_cb cb, void *user_data) {
+//     FILE* fp = fopen(PHUCK_OFF_FUNCS_PATH, "rb");
+//     if (!fp) {
+//         phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "failed to read funcs from %s", PHUCK_OFF_FUNCS_FILE);
+//         return -1;
+//     }
+//
+//     char* buffer = NULL;
+//     size_t cap = 0;
+//     ssize_t nread;
+//     uint32_t line_no = 1;
+//
+//     while ((nread = getline(&buffer, &cap, fp)) != -1) {
+//         size_t len = (size_t)nread;
+//         strip_newline(buffer, &len);
+//
+//         cb(line_no, buffer, len, user_data);
+//
+//         line_no++;
+//     }
+//
+//     free(buffer);
+//     fclose(fp);
+//
+//     return 0;
+// }
+//
+// // returns a hash mapping name files to the # of functions in this file
+// static xdebug_hash* parse_dumper_output_first_pass(void) {
+//
+// }
+//
+// static parse_dumper_output(void) {
+//     phuck_off_log(PHUCK_OFF_LOG_LEVEL_INFO, "parsing dumper output from %s", PHUCK_OFF_FUNCS_FILE);
+//
+//
+// }
+//
+// typedef struct resizable_hash {
+//     xdebug_hash *hash;
+//     int count;
+// } resizable_hash;
+//
+//
+//
+//
+//
+//
+//
+// // wkpo oldies below
+// // wkpo oldies below
+// // wkpo oldies below
+// // wkpo oldies below
+//
+//
+// static xdebug_hash* build_funcs_hash(void) {
+//     phuck_off_log(PHUCK_OFF_LOG_LEVEL_INFO, "reading funcs from %s", PHUCK_OFF_FUNCS_FILE);
+//
+//     FILE* fp = fopen("/etc/funcs.txt", "rb");
+//     if (!fp) {
+//         phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "failed to read funcs from %s", PHUCK_OFF_FUNCS_FILE);
+//         return NULL;
+//     }
+//
+//     xdebug_hash* h = xdebug_hash_alloc(PHUCK_OFF_FUNCS_HASH_SIZE, NULL);
+//     if (!h) {
+//         phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "unable to build hash map");
+//         fclose(fp);
+//         return NULL;
+//     }
+//
+//     char* buffer = NULL;
+//     size_t cap = 0;
+//     ssize_t nread;
+//     uint32_t line_no = 1;
+//
+//     while ((nread = getline(&buffer, &cap, fp)) != -1) {
+//         size_t len = (size_t)nread;
+//         strip_newline(buffer, &len);
+//
+//         if (len != 0) {
+//             phuck_off_log(PHUCK_OFF_LOG_LEVEL_TRACE, "func at line %d: %s", line_no, buffer);
+//
+//             // wkpo aqui would make sense to check that < PHUCK_OFF_MAX_FUNC_NAME_LEN; then we can remove the error log below!!
+//
+//             xdebug_hash_add(h, buffer, (int)len, (void*)(uintptr_t)line_no);
+//         }
+//
+//         line_no++;
+//     }
+//     free(buffer);
+//
+//     fclose(fp);
+//     return h;
+// }
+//
+// static void init_handler(void) {
+//     handler.funcs = build_funcs_hash();
+//
+//     handler.initialized = handler.funcs != NULL;
+// }
+//
+// static void shutdown_handler(void) {
+//     if (handler.funcs != NULL) {
+//         xdebug_hash_destroy(handler.funcs);
+//         handler.funcs = NULL;
+//     }
+//     handler.initialized = 0;
+// }
+//
+// static inline int normalize_func_name(xdebug_func f, char buffer[PHUCK_OFF_MAX_FUNC_NAME_LEN]) {
+//     int n = 0;
+//     switch (f.type) {
+//         case XFUNC_NORMAL:
+//             n = snprintf(buffer, PHUCK_OFF_MAX_FUNC_NAME_LEN, "%s", f.function);
+//             break;
+//
+//         case XFUNC_STATIC_MEMBER:
+//         case XFUNC_MEMBER: {
+//             const char* cls;
+//             const char* fn;
+//             int log_warning = 0;
+//
+//             if (f.class) {
+//                 cls = f.class;
+//             } else {
+//                 cls = "?";
+//                 log_warning = 1;
+//             }
+//             if (f.function) {
+//                 fn = f.function;
+//             } else {
+//                 fn = "?";
+//                 log_warning = 1;
+//             }
+//
+//             n = snprintf(buffer, PHUCK_OFF_MAX_FUNC_NAME_LEN, "%s::%s", cls, fn);
+//
+//             if (log_warning) {
+//                 phuck_off_log(PHUCK_OFF_LOG_LEVEL_WARN, "function \"%s\" missing class or name", buffer);
+//             }
+//
+//             break;
+//         }
+//     }
+//
+//     if (n >= PHUCK_OFF_MAX_FUNC_NAME_LEN) {
+//         phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "normalized function name \"%s\" too long (total length %d)", buffer, n);
+//         n = 0;
+//     }
+//
+//     buffer[n] = '\0';
+//
+//     if (n) {
+//         for (char* p = buffer; *p; p++) {
+//             *p = (char) tolower((unsigned char)*p);
+//         }
+//     }
+//
+//     return n;
+// }
+//
+// void phuck_off_handle_stack_function(xdebug_func f) {
+//     if (!handler.initialized) return;
+//
+//     char name[PHUCK_OFF_MAX_FUNC_NAME_LEN];
+//     const int name_len = normalize_func_name(f, name);
+//
+//     if (name_len == 0) return;
+//
+//     void *val = NULL;
+//     int line_no = -1;
+//     if (xdebug_hash_find(handler.funcs, name, (unsigned int)name_len, &val)) {
+//         line_no = (int)((uintptr_t)val);
+//     }
+//
+//     phuck_off_log(PHUCK_OFF_LOG_LEVEL_DEBUG, "function \"%s\" => line %d", name, line_no);
+//
+//     // wkpo NEXT: cache the lookup in op_array, see the last 3-4 items of
+//     // https://chatgpt.com/c/6940b9e0-a0dc-8330-bdd0-2424f2dd0d85
+// }
+//
+// /***********************
+//  * END OF MAIN SECTION *
+//  ***********************/
+//
+// /*************************
+//  * INIT/SHUTDOWN SECTION *
+//  *************************/
+//
+// void phuck_off_init(void) {
+//     init_logger();
+//     init_handler();
+// }
+//
+// void phuck_off_shutdown(void) {
+//     shutdown_handler();
+//     shutdown_logger();
+// }
+//
+// /********************************
+//  * END OF INIT/SHUTDOWN SECTION *
+//  ********************************/
