@@ -5,6 +5,8 @@
 // wkpo make sure no tabs in this file??
 
 #include <stdlib.h>
+#include <stdint.h>
+#include <string.h>
 
 #include "phuck_off.h"
 #include "phuck_off_logger.h"
@@ -27,12 +29,49 @@ typedef struct phuck_off {
 static phuck_off handler = { 0, NULL, NULL };
 
 static int function_id(const char *path, const int line_no) {
-    // this should:
-    // 1. check if path starts with user_code_root, if not, just return -1; pay attention to null chars there
-    // 2. get the inner hash for path from files; if that key is not there, return -1 and log an error with our own logger
-    // 3. if the associated value is NULL, return -1, that's normal, just means this file is ignored
-    // 4. otherwise look for the line_no in the inner hash
-    // 5. if it's there, return that. if not, return -1 and log an error
+    size_t root_len;
+    size_t path_len;
+    void *file_entry = NULL;
+    void *line_entry = NULL;
+    xdebug_hash *line_map;
+
+    if (!handler.initialized || !path || !handler.user_code_root || !handler.files || line_no <= 0) {
+        return -1;
+    }
+
+    root_len = strlen(handler.user_code_root);
+    path_len = strlen(path);
+
+    while (root_len > 1 && handler.user_code_root[root_len - 1] == '/') {
+        root_len--;
+    }
+
+    if (root_len == 0 || path_len < root_len || memcmp(path, handler.user_code_root, root_len) != 0) {
+        return -1;
+    }
+
+    if (!(root_len == 1 && handler.user_code_root[0] == '/')
+        && path[root_len] != '\0'
+        && path[root_len] != '/') {
+        return -1;
+    }
+
+    if (!xdebug_hash_find(handler.files, (char *) path, (unsigned int) path_len, &file_entry)) {
+        phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "No function map entry for path \"%s\"", path);
+        return -1;
+    }
+
+    if (file_entry == NULL) {
+        return -1;
+    }
+
+    line_map = (xdebug_hash *) file_entry;
+    if (!xdebug_hash_index_find(line_map, (unsigned long) line_no, &line_entry)) {
+        phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "No function id entry for \"%s\":%d", path, line_no);
+        return -1;
+    }
+
+    return (int) (uintptr_t) line_entry;
 }
 
 
