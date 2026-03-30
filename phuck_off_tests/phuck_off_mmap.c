@@ -9,8 +9,7 @@
 #include "phuck_off_mmap.h"
 
 static int failures = 0;
-static char backup_template[] = "/tmp/phuck-off.mmap.backup.XXXXXX";
-static int backup_exists = 0;
+static char test_path[] = "/tmp/phuck-off.mmap.test.XXXXXX";
 
 static void assert_true(int condition, const char* message) {
     if (!condition) {
@@ -33,7 +32,7 @@ static void read_file_bytes(unsigned char* buffer, size_t byte_count) {
     FILE* fp;
     size_t read_count;
 
-    fp = fopen(PHUCK_OFF_MMAP_FILE, "rb");
+    fp = fopen(test_path, "rb");
     assert_true(fp != NULL, "failed to open mmap backing file");
     if (!fp) {
         memset(buffer, 0, byte_count);
@@ -45,41 +44,9 @@ static void read_file_bytes(unsigned char* buffer, size_t byte_count) {
     fclose(fp);
 }
 
-static void backup_existing_file(void) {
-    int fd;
-
-    if (access(PHUCK_OFF_MMAP_FILE, F_OK) != 0) {
-        backup_exists = 0;
-        return;
-    }
-
-    fd = mkstemp(backup_template);
-    assert_true(fd >= 0, "failed to create mmap backup path");
-    if (fd < 0) {
-        return;
-    }
-
-    close(fd);
-    unlink(backup_template);
-
-    assert_true(rename(PHUCK_OFF_MMAP_FILE, backup_template) == 0, "failed to back up existing mmap file");
-    if (!failures) {
-        backup_exists = 1;
-    }
-}
-
-static void restore_existing_file(void) {
-    phuck_off_mmap_shutdown();
-
-    if (backup_exists) {
-        assert_true(rename(backup_template, PHUCK_OFF_MMAP_FILE) == 0, "failed to restore original mmap file");
-        backup_exists = 0;
-    }
-}
-
 static void remove_test_file(void) {
     phuck_off_mmap_shutdown();
-    if (unlink(PHUCK_OFF_MMAP_FILE) != 0 && errno != ENOENT) {
+    if (unlink(test_path) != 0 && errno != ENOENT) {
         assert_true(0, "failed to remove mmap test file");
     }
 }
@@ -87,8 +54,8 @@ static void remove_test_file(void) {
 static void run_invalid_init_case(void) {
     remove_test_file();
 
-    assert_true(!phuck_off_mmap_init(0), "init(0) should fail");
-    assert_true(access(PHUCK_OFF_MMAP_FILE, F_OK) != 0, "init(0) should not create a backing file");
+    assert_true(!phuck_off_mmap_init(test_path, 0), "init(0) should fail");
+    assert_true(access(test_path, F_OK) != 0, "init(0) should not create a backing file");
 }
 
 static void run_create_and_set_case(void) {
@@ -96,9 +63,9 @@ static void run_create_and_set_case(void) {
 
     remove_test_file();
 
-    assert_true(phuck_off_mmap_init(10), "init(10) should succeed");
+    assert_true(phuck_off_mmap_init(test_path, 10), "init(10) should succeed");
     assert_true(phuck_off_mmap_bytes != NULL, "mapped bytes should be available after init");
-    assert_true(file_size(PHUCK_OFF_MMAP_FILE) == 2, "10 bits should allocate 2 bytes");
+    assert_true(file_size(test_path) == 2, "10 bits should allocate 2 bytes");
     assert_true(phuck_off_mmap_bytes[0] == 0, "first byte should be zero after init");
     assert_true(phuck_off_mmap_bytes[1] == 0, "second byte should be zero after init");
 
@@ -117,8 +84,8 @@ static void run_create_and_set_case(void) {
 }
 
 static void run_reinit_case(void) {
-    assert_true(phuck_off_mmap_init(17), "reinit to 17 bits should succeed");
-    assert_true(file_size(PHUCK_OFF_MMAP_FILE) == 3, "17 bits should allocate 3 bytes");
+    assert_true(phuck_off_mmap_init(test_path, 17), "reinit to 17 bits should succeed");
+    assert_true(file_size(test_path) == 3, "17 bits should allocate 3 bytes");
     assert_true(phuck_off_mmap_bytes[0] == 0, "reinit should zero the first byte");
     assert_true(phuck_off_mmap_bytes[1] == 0, "reinit should zero the second byte");
     assert_true(phuck_off_mmap_bytes[2] == 0, "reinit should zero the third byte");
@@ -127,18 +94,25 @@ static void run_reinit_case(void) {
 static void run_shutdown_case(void) {
     phuck_off_mmap_shutdown();
     assert_true(phuck_off_mmap_bytes == NULL, "shutdown should clear the mapped pointer");
-    assert_true(access(PHUCK_OFF_MMAP_FILE, F_OK) != 0, "shutdown should remove the backing file");
+    assert_true(access(test_path, F_OK) != 0, "shutdown should remove the backing file");
 }
 
 int main(void) {
-    backup_existing_file();
+    int fd;
+
+    fd = mkstemp(test_path);
+    assert_true(fd >= 0, "failed to allocate mmap test path");
+    if (fd < 0) {
+        return 1;
+    }
+
+    close(fd);
+    unlink(test_path);
 
     run_invalid_init_case();
     run_create_and_set_case();
     run_reinit_case();
     run_shutdown_case();
-
-    restore_existing_file();
 
     if (failures) {
         return 1;
