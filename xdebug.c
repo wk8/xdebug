@@ -64,6 +64,7 @@
 #include "usefulstuff.h"
 
 #include "phuck_off.h"
+#include "phuck_off_logger.h"
 
 /* execution redirection functions */
 zend_op_array* (*old_compile_file)(zend_file_handle* file_handle, int type TSRMLS_DC);

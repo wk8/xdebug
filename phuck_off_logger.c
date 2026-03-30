@@ -7,7 +7,6 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-#include "phuck_off.h"
 #include "phuck_off_logger.h"
 
 typedef struct phuck_off_logger {

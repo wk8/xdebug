@@ -39,6 +39,7 @@
 #include "main/php_ini.h"
 
 #include "phuck_off.h"
+#include "phuck_off_logger.h"
 
 ZEND_EXTERN_MODULE_GLOBALS(xdebug)
 
