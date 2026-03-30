@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "shims.h"
 #include "phuck_off.c"
 
 static int failures = 0;

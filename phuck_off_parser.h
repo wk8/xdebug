@@ -5,6 +5,10 @@
 
 #include "xdebug_hash.h"
 
+#ifndef PHUCK_OFF_FUNCS_PATH
+#define PHUCK_OFF_FUNCS_PATH "/etc/funcs.txt"
+#endif
+
 #define PHUCK_OFF_FILES_INITIAL_SLOTS 1024
 #define PHUCK_OFF_FILE_LINES_INITIAL_SLOTS 8
 #define PHUCK_OFF_GENERATED_FOR_MARKER "### GENERATED FOR ###"

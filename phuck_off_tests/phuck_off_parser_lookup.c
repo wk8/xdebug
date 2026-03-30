@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "shims.h"
 #include "phuck_off.c"
 
 typedef struct {

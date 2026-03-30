@@ -5,6 +5,7 @@ set -eu
 ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 CC_BIN="${CC:-cc}"
 BUILD_DIR="$(mktemp -d "${TMPDIR:-/tmp}/xdebug_fork_tests.XXXXXX")"
+SHIMS_HEADER="$ROOT/phuck_off_tests/shims.h"
 
 cleanup() {
     rm -rf "$BUILD_DIR"
@@ -28,10 +29,10 @@ run_test "xdebug_hash_resize" "$ROOT/phuck_off_tests/xdebug_hash_resize.c" \
 run_test "phuck_off_parser" "$ROOT/phuck_off_tests/phuck_off_parser.c" \
     "$ROOT/xdebug_hash.c" "$ROOT/xdebug_llist.c" "$ROOT/phuck_off_parser.c"
 run_test "phuck_off_logger" "$ROOT/phuck_off_tests/phuck_off_logger.c" \
-    -DPHUCK_OFF_STANDALONE_TEST "$ROOT/phuck_off_logger.c"
+    -include "$SHIMS_HEADER" "$ROOT/phuck_off_logger.c"
 run_test "phuck_off_function_id" "$ROOT/phuck_off_tests/phuck_off_function_id.c" \
-    -DPHUCK_OFF_STANDALONE_TEST "$ROOT/xdebug_hash.c" "$ROOT/xdebug_llist.c" "$ROOT/phuck_off_parser.c" "$ROOT/phuck_off_logger.c"
+    -include "$SHIMS_HEADER" "$ROOT/xdebug_hash.c" "$ROOT/xdebug_llist.c" "$ROOT/phuck_off_parser.c" "$ROOT/phuck_off_logger.c"
 run_test "phuck_off_parser_lookup" "$ROOT/phuck_off_tests/phuck_off_parser_lookup.c" \
-    -DPHUCK_OFF_STANDALONE_TEST "$ROOT/xdebug_hash.c" "$ROOT/xdebug_llist.c" "$ROOT/phuck_off_parser.c" "$ROOT/phuck_off_logger.c"
+    -include "$SHIMS_HEADER" "$ROOT/xdebug_hash.c" "$ROOT/xdebug_llist.c" "$ROOT/phuck_off_parser.c" "$ROOT/phuck_off_logger.c"
 
 echo "all fork tests passed"
