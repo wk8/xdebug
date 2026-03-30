@@ -16,77 +16,42 @@ typedef struct {
 	const char *name;
 	const char *fixture_path;
 	const char *expected_root;
-	const positive_case *positive_cases;
+	positive_case positive_cases[20];
 	size_t positive_case_count;
-	positive_case first_case;
-	positive_case last_case;
 	const char *ignored_path;
 	const char *missing_in_root_path;
 	const char *prefix_only_path;
 	const char *outside_root_path;
 } fixture_case;
 
-static int failures = 0;
-static char backup_template[] = "/tmp/phuck-off.parser-lookup.backup.XXXXXX";
-static int backup_exists = 0;
-static char *saved_env = NULL;
-static int env_was_set = 0;
-
-static const positive_case api_positive_cases[] = {
-	{"/Users/wk/pushpress/pps-clean/api/v1/app/library/micro/messages/Auth.php", 40, 1},
-	{"/Users/wk/pushpress/pps-clean/api/v1/app/library/micro/messages/Auth.php", 52, 2},
-	{"/Users/wk/pushpress/pps-clean/api/v1/app/library/micro/messages/Auth.php", 56, 3},
-	{"/Users/wk/pushpress/pps-clean/api/v1/app/library/micro/messages/Auth.php", 60, 4},
-	{"/Users/wk/pushpress/pps-clean/api/v1/app/library/micro/messages/Auth.php", 64, 5},
-	{"/Users/wk/pushpress/pps-clean/api/v1/app/library/payments/Dwolla.php", 20, 6},
-	{"/Users/wk/pushpress/pps-clean/api/v1/app/library/payments/Dwolla.php", 46, 7},
-	{"/Users/wk/pushpress/pps-clean/api/v1/app/library/payments/Dwolla.php", 64, 8},
-	{"/Users/wk/pushpress/pps-clean/api/v1/app/library/payments/Dwolla.php", 98, 9},
-	{"/Users/wk/pushpress/pps-clean/api/v1/app/library/payments/Dwolla.php", 136, 10},
-	{"/Users/wk/pushpress/pps-clean/api/v1/app/library/payments/Dwolla.php", 149, 11},
-	{"/Users/wk/pushpress/pps-clean/api/v1/app/library/payments/Dwolla.php", 207, 12},
-	{"/Users/wk/pushpress/pps-clean/api/v1/app/library/payments/Dwolla.php", 238, 13},
-	{"/Users/wk/pushpress/pps-clean/api/v1/app/library/payments/Dwolla.php", 280, 14},
-	{"/Users/wk/pushpress/pps-clean/api/v1/app/library/payments/Dwolla.php", 315, 15},
-	{"/Users/wk/pushpress/pps-clean/api/v1/app/library/payments/Dwolla.php", 321, 16},
-	{"/Users/wk/pushpress/pps-clean/api/v1/app/library/payments/Dwolla.php", 325, 17},
-	{"/Users/wk/pushpress/pps-clean/api/v1/app/library/payments/Dwolla.php", 337, 18},
-	{"/Users/wk/pushpress/pps-clean/api/v1/app/library/payments/Dwolla.php", 343, 19},
-	{"/Users/wk/pushpress/pps-clean/api/v1/app/library/payments/Dwolla.php", 396, 20},
-};
-
-static const positive_case control_panel_positive_cases[] = {
-	{"/Users/wk/pushpress/pps-clean/control-panel-legacy/writeable/UploadHandler.php", 42, 1},
-	{"/Users/wk/pushpress/pps-clean/control-panel-legacy/writeable/UploadHandler.php", 174, 2},
-	{"/Users/wk/pushpress/pps-clean/control-panel-legacy/writeable/UploadHandler.php", 197, 3},
-	{"/Users/wk/pushpress/pps-clean/control-panel-legacy/writeable/UploadHandler.php", 211, 4},
-	{"/Users/wk/pushpress/pps-clean/control-panel-legacy/writeable/UploadHandler.php", 217, 5},
-	{"/Users/wk/pushpress/pps-clean/control-panel-legacy/writeable/UploadHandler.php", 225, 6},
-	{"/Users/wk/pushpress/pps-clean/control-panel-legacy/writeable/UploadHandler.php", 241, 7},
-	{"/Users/wk/pushpress/pps-clean/control-panel-legacy/writeable/UploadHandler.php", 246, 8},
-	{"/Users/wk/pushpress/pps-clean/control-panel-legacy/writeable/UploadHandler.php", 271, 9},
-	{"/Users/wk/pushpress/pps-clean/control-panel-legacy/writeable/UploadHandler.php", 288, 10},
-	{"/Users/wk/pushpress/pps-clean/control-panel-legacy/writeable/UploadHandler.php", 296, 11},
-	{"/Users/wk/pushpress/pps-clean/control-panel-legacy/writeable/UploadHandler.php", 308, 12},
-	{"/Users/wk/pushpress/pps-clean/control-panel-legacy/writeable/UploadHandler.php", 317, 13},
-	{"/Users/wk/pushpress/pps-clean/control-panel-legacy/writeable/UploadHandler.php", 342, 14},
-	{"/Users/wk/pushpress/pps-clean/control-panel-legacy/writeable/UploadHandler.php", 354, 15},
-	{"/Users/wk/pushpress/pps-clean/control-panel-legacy/writeable/UploadHandler.php", 359, 16},
-	{"/Users/wk/pushpress/pps-clean/control-panel-legacy/writeable/UploadHandler.php", 365, 17},
-	{"/Users/wk/pushpress/pps-clean/control-panel-legacy/writeable/UploadHandler.php", 383, 18},
-	{"/Users/wk/pushpress/pps-clean/control-panel-legacy/writeable/UploadHandler.php", 470, 19},
-	{"/Users/wk/pushpress/pps-clean/control-panel-legacy/writeable/UploadHandler.php", 477, 20},
-};
-
 static const fixture_case fixture_cases[] = {
 	{
 		"api",
 		"/Users/wk/pushpress/xdebug/phuck_off_tests/fixtures/api.txt",
 		"/Users/wk/pushpress/pps-clean/api",
-		api_positive_cases,
-		sizeof(api_positive_cases) / sizeof(api_positive_cases[0]),
-		{"/Users/wk/pushpress/pps-clean/api/v1/app/library/micro/messages/Auth.php", 40, 1},
-		{"/Users/wk/pushpress/pps-clean/api/console/index.php", 12, 2675},
+		{
+			{"/Users/wk/pushpress/pps-clean/api/v1/app/library/micro/messages/Auth.php", 40, 1},
+			{"/Users/wk/pushpress/pps-clean/api/v1/app/library/application/Micro.php", 207, 190},
+			{"/Users/wk/pushpress/pps-clean/api/v1/app/library/services/microprocess/checkin.php", 18, 438},
+			{"/Users/wk/pushpress/pps-clean/api/v1/app/library/services/Checkin.php", 2178, 466},
+			{"/Users/wk/pushpress/pps-clean/api/v1/app/models/TrackWorkoutTypes.php", 48, 535},
+			{"/Users/wk/pushpress/pps-clean/api/v1/app/models/SchedulerTypes.php", 102, 894},
+			{"/Users/wk/pushpress/pps-clean/api/v1/app/models/SchedulerCredits.php", 170, 939},
+			{"/Users/wk/pushpress/pps-clean/api/v1/app/models/OrderData.php", 127, 1235},
+			{"/Users/wk/pushpress/pps-clean/api/v1/app/models/Users.php", 110, 1366},
+			{"/Users/wk/pushpress/pps-clean/api/v1/app/models/Notifications.php", 91, 1456},
+			{"/Users/wk/pushpress/pps-clean/api/v1/app/models/Checkins.php", 240, 1473},
+			{"/Users/wk/pushpress/pps-clean/api/v1/app/models/PreorderSales.php", 123, 1589},
+			{"/Users/wk/pushpress/pps-clean/api/v1/app/models/ProductInventoryLogs.php", 78, 1653},
+			{"/Users/wk/pushpress/pps-clean/api/v1/app/models/TransactionLog.php", 71, 1738},
+			{"/Users/wk/pushpress/pps-clean/api/v1/app/models/Products.php", 339, 1781},
+			{"/Users/wk/pushpress/pps-clean/api/v1/app/models/CalendarSessionTypes.php", 15, 2073},
+			{"/Users/wk/pushpress/pps-clean/api/v1/app/controllers/MetricsCoachController.php", 184, 2139},
+			{"/Users/wk/pushpress/pps-clean/api/v1/app/controllers/HookController.php", 243, 2181},
+			{"/Users/wk/pushpress/pps-clean/api/v1/app/controllers/TaxRateController.php", 16, 2490},
+			{"/Users/wk/pushpress/pps-clean/api/console/index.php", 12, 2675}
+		},
+		20,
 		"/Users/wk/pushpress/pps-clean/api/private/rector_downgrade_to_php5_config.php",
 		"/Users/wk/pushpress/pps-clean/api/definitely-not-in-dump.php",
 		"/Users/wk/pushpress/pps-clean/api-shadow/definitely-not-in-dump.php",
@@ -96,16 +61,41 @@ static const fixture_case fixture_cases[] = {
 		"control-panel",
 		"/Users/wk/pushpress/xdebug/phuck_off_tests/fixtures/control-panel.txt",
 		"/Users/wk/pushpress/pps-clean/control-panel-legacy",
-		control_panel_positive_cases,
-		sizeof(control_panel_positive_cases) / sizeof(control_panel_positive_cases[0]),
-		{"/Users/wk/pushpress/pps-clean/control-panel-legacy/writeable/UploadHandler.php", 42, 1},
-		{"/Users/wk/pushpress/pps-clean/control-panel-legacy/assets/json/pp_json_import.php", 84, 2696},
+		{
+			{"/Users/wk/pushpress/pps-clean/control-panel-legacy/writeable/UploadHandler.php", 42, 1},
+			{"/Users/wk/pushpress/pps-clean/control-panel-legacy/writeable/UploadHandler.php", 477, 20},
+			{"/Users/wk/pushpress/pps-clean/control-panel-legacy/application/libraries/oAuth/facebook/base_facebook.php", 667, 105},
+			{"/Users/wk/pushpress/pps-clean/control-panel-legacy/application/libraries/opengateway.php", 31, 352},
+			{"/Users/wk/pushpress/pps-clean/control-panel-legacy/application/libraries/opengateway.php", 453, 368},
+			{"/Users/wk/pushpress/pps-clean/control-panel-legacy/application/libraries/services/CalendarService.php", 50, 547},
+			{"/Users/wk/pushpress/pps-clean/control-panel-legacy/application/libraries/oauth2-client/test/src/Provider/GithubTest.php", 20, 622},
+			{"/Users/wk/pushpress/pps-clean/control-panel-legacy/application/models/plan_model.php", 1806, 944},
+			{"/Users/wk/pushpress/pps-clean/control-panel-legacy/application/models/charge_data_model.php", 118, 1063},
+			{"/Users/wk/pushpress/pps-clean/control-panel-legacy/application/models/customer_billing_model.php", 369, 1443},
+			{"/Users/wk/pushpress/pps-clean/control-panel-legacy/application/models/customer_billing_model.php", 771, 1452},
+			{"/Users/wk/pushpress/pps-clean/control-panel-legacy/application/controllers/reports.php", 712, 1714},
+			{"/Users/wk/pushpress/pps-clean/control-panel-legacy/application/controllers/reports.php", 1560, 1721},
+			{"/Users/wk/pushpress/pps-clean/control-panel-legacy/application/controllers/reports.php", 2003, 1724},
+			{"/Users/wk/pushpress/pps-clean/control-panel-legacy/application/controllers/members.php", 7950, 1903},
+			{"/Users/wk/pushpress/pps-clean/control-panel-legacy/application/controllers/advisor.php", 21, 1928},
+			{"/Users/wk/pushpress/pps-clean/control-panel-legacy/application/controllers/console.php", 134, 2197},
+			{"/Users/wk/pushpress/pps-clean/control-panel-legacy/application/controllers/pushpress.php", 736, 2275},
+			{"/Users/wk/pushpress/pps-clean/control-panel-legacy/application/controllers/UploadHandler.php", 1346, 2531},
+			{"/Users/wk/pushpress/pps-clean/control-panel-legacy/assets/json/pp_json_import.php", 84, 2696}
+		},
+		20,
 		"/Users/wk/pushpress/pps-clean/control-panel-legacy/branding/bootstrap/fullcalendar-2.7.2/demos/php/get-timezones.php",
 		"/Users/wk/pushpress/pps-clean/control-panel-legacy/definitely-not-in-dump.php",
 		"/Users/wk/pushpress/pps-clean/control-panel-legacy-shadow/definitely-not-in-dump.php",
 		"/tmp/phuck-off-outside-control-panel.php"
 	}
 };
+
+static int failures = 0;
+static char backup_template[] = "/tmp/phuck-off.parser-lookup.backup.XXXXXX";
+static int backup_exists = 0;
+static char *saved_env = NULL;
+static int env_was_set = 0;
 
 static void assert_true(int condition, const char *message)
 {
@@ -312,9 +302,6 @@ static void run_fixture_case(const fixture_case *fixture)
 	assert_true(handler.files != NULL, message);
 	snprintf(message, sizeof(message), "unexpected user_code_root for %s", fixture->name);
 	assert_true(strcmp(handler.user_code_root, fixture->expected_root) == 0, message);
-
-	assert_expected_function_id(fixture->first_case.path, fixture->first_case.line_no, fixture->first_case.expected_id);
-	assert_expected_function_id(fixture->last_case.path, fixture->last_case.line_no, fixture->last_case.expected_id);
 
 	for (i = 0; i < fixture->positive_case_count; i++) {
 		assert_expected_function_id(
