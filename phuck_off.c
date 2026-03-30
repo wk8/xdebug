@@ -173,141 +173,25 @@ static phuck_off handler = { 0, NULL };
  * END OF MAIN SECTION *
  ***********************/
 
-/******************
- * PARSER SECTION *
- ******************/
-
-/*************************
- * END OF PARSER SECTION *
- *************************/
+/***********************
+ * PARSER/INIT SECTION *
+ ***********************/
 
 #define PHUCK_OFF_FUNCS_PATH "/etc/funcs.txt"
 
-// static xdebug_hash *build_path_counts(const char *input_path, unsigned long *out_unique_paths)
+static void init_handler(void) {
+    // wkpo here!!
+    // populate xdebug_hash* files and char* user_code_root
 
+    handler.initialized = handler.funcs != NULL;
+}
 
-// wkpo oldies below
-// wkpo oldies below
-// wkpo oldies below
-// wkpo oldies below
-// wkpo oldies below
+/******************************
+ * END OF PARSER/INIT SECTION *
+ ******************************/
 
-// static void strip_newline(char* s, size_t* len) {
-//     while (*len > 0) {
-//         char c = s[*len - 1];
-//         if (c != '\n' && c != '\r') {
-//             return;
-//         }
 //
-//         s[--(*len)] = '\0';
-//     }
-// }
-//
-//
-//
-// typedef void (*parse_line_cb)(uint32_t line_no, const char *line, size_t len, void *user_data);
-//
-// static int parse_line_by_line(parse_line_cb cb, void *user_data) {
-//     FILE* fp = fopen(PHUCK_OFF_FUNCS_PATH, "rb");
-//     if (!fp) {
-//         phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "failed to read funcs from %s", PHUCK_OFF_FUNCS_FILE);
-//         return -1;
-//     }
-//
-//     char* buffer = NULL;
-//     size_t cap = 0;
-//     ssize_t nread;
-//     uint32_t line_no = 1;
-//
-//     while ((nread = getline(&buffer, &cap, fp)) != -1) {
-//         size_t len = (size_t)nread;
-//         strip_newline(buffer, &len);
-//
-//         cb(line_no, buffer, len, user_data);
-//
-//         line_no++;
-//     }
-//
-//     free(buffer);
-//     fclose(fp);
-//
-//     return 0;
-// }
-//
-// // returns a hash mapping name files to the # of functions in this file
-// static xdebug_hash* parse_dumper_output_first_pass(void) {
-//
-// }
-//
-// static parse_dumper_output(void) {
-//     phuck_off_log(PHUCK_OFF_LOG_LEVEL_INFO, "parsing dumper output from %s", PHUCK_OFF_FUNCS_FILE);
-//
-//
-// }
-//
-// typedef struct resizable_hash {
-//     xdebug_hash *hash;
-//     int count;
-// } resizable_hash;
-//
-//
-//
-//
-//
-//
-//
-// // wkpo oldies below
-// // wkpo oldies below
-// // wkpo oldies below
-// // wkpo oldies below
-//
-//
-// static xdebug_hash* build_funcs_hash(void) {
-//     phuck_off_log(PHUCK_OFF_LOG_LEVEL_INFO, "reading funcs from %s", PHUCK_OFF_FUNCS_FILE);
-//
-//     FILE* fp = fopen("/etc/funcs.txt", "rb");
-//     if (!fp) {
-//         phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "failed to read funcs from %s", PHUCK_OFF_FUNCS_FILE);
-//         return NULL;
-//     }
-//
-//     xdebug_hash* h = xdebug_hash_alloc(PHUCK_OFF_FUNCS_HASH_SIZE, NULL);
-//     if (!h) {
-//         phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "unable to build hash map");
-//         fclose(fp);
-//         return NULL;
-//     }
-//
-//     char* buffer = NULL;
-//     size_t cap = 0;
-//     ssize_t nread;
-//     uint32_t line_no = 1;
-//
-//     while ((nread = getline(&buffer, &cap, fp)) != -1) {
-//         size_t len = (size_t)nread;
-//         strip_newline(buffer, &len);
-//
-//         if (len != 0) {
-//             phuck_off_log(PHUCK_OFF_LOG_LEVEL_TRACE, "func at line %d: %s", line_no, buffer);
-//
-//             // wkpo aqui would make sense to check that < PHUCK_OFF_MAX_FUNC_NAME_LEN; then we can remove the error log below!!
-//
-//             xdebug_hash_add(h, buffer, (int)len, (void*)(uintptr_t)line_no);
-//         }
-//
-//         line_no++;
-//     }
-//     free(buffer);
-//
-//     fclose(fp);
-//     return h;
-// }
-//
-// static void init_handler(void) {
-//     handler.funcs = build_funcs_hash();
-//
-//     handler.initialized = handler.funcs != NULL;
-// }
+
 //
 // static void shutdown_handler(void) {
 //     if (handler.funcs != NULL) {
