@@ -12,10 +12,6 @@
 #include "phuck_off_logger.h"
 #include "phuck_off_parser.h"
 
-/****************
- * MAIN SECTION *
- ****************/
-
 typedef struct phuck_off {
     int initialized;
     // the root of where the user defined code lives,
@@ -65,15 +61,6 @@ static int function_id(const char *path, const int line_no) {
     return (int) (uintptr_t) line_entry;
 }
 
-
-/***********************
- * END OF MAIN SECTION *
- ***********************/
-
-/***********************
- * PARSER/INIT SECTION *
- ***********************/
-
 static void shutdown_handler(void);
 
 static void init_handler(void) {
@@ -91,12 +78,6 @@ static void init_handler(void) {
     handler.initialized = 1;
 }
 
-/******************************
- * END OF PARSER/INIT SECTION *
- ******************************/
-
-//
-
 static void shutdown_handler(void) {
     if (handler.files != NULL) {
         xdebug_hash_destroy(handler.files);
@@ -110,87 +91,6 @@ static void shutdown_handler(void) {
     handler.initialized = 0;
 }
 
-// static inline int normalize_func_name(xdebug_func f, char buffer[PHUCK_OFF_MAX_FUNC_NAME_LEN]) {
-//     int n = 0;
-//     switch (f.type) {
-//         case XFUNC_NORMAL:
-//             n = snprintf(buffer, PHUCK_OFF_MAX_FUNC_NAME_LEN, "%s", f.function);
-//             break;
-//
-//         case XFUNC_STATIC_MEMBER:
-//         case XFUNC_MEMBER: {
-//             const char* cls;
-//             const char* fn;
-//             int log_warning = 0;
-//
-//             if (f.class) {
-//                 cls = f.class;
-//             } else {
-//                 cls = "?";
-//                 log_warning = 1;
-//             }
-//             if (f.function) {
-//                 fn = f.function;
-//             } else {
-//                 fn = "?";
-//                 log_warning = 1;
-//             }
-//
-//             n = snprintf(buffer, PHUCK_OFF_MAX_FUNC_NAME_LEN, "%s::%s", cls, fn);
-//
-//             if (log_warning) {
-//                 phuck_off_log(PHUCK_OFF_LOG_LEVEL_WARN, "function \"%s\" missing class or name", buffer);
-//             }
-//
-//             break;
-//         }
-//     }
-//
-//     if (n >= PHUCK_OFF_MAX_FUNC_NAME_LEN) {
-//         phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "normalized function name \"%s\" too long (total length %d)", buffer, n);
-//         n = 0;
-//     }
-//
-//     buffer[n] = '\0';
-//
-//     if (n) {
-//         for (char* p = buffer; *p; p++) {
-//             *p = (char) tolower((unsigned char)*p);
-//         }
-//     }
-//
-//     return n;
-// }
-//
-void phuck_off_handle_stack_function(xdebug_func f) {
-    (void) f;
-
-//     if (!handler.initialized) return;
-//
-//     char name[PHUCK_OFF_MAX_FUNC_NAME_LEN];
-//     const int name_len = normalize_func_name(f, name);
-//
-//     if (name_len == 0) return;
-//
-//     void *val = NULL;
-//     int line_no = -1;
-//     if (xdebug_hash_find(handler.funcs, name, (unsigned int)name_len, &val)) {
-//         line_no = (int)((uintptr_t)val);
-//     }
-//
-//     phuck_off_log(PHUCK_OFF_LOG_LEVEL_DEBUG, "function \"%s\" => line %d", name, line_no);
-//
-//     // wkpo NEXT: cache the lookup in op_array, see the last 3-4 items of
-//     // https://chatgpt.com/c/6940b9e0-a0dc-8330-bdd0-2424f2dd0d85
-}
-
-/***********************
- * END OF MAIN SECTION *
- ***********************/
-
-/*************************
- * INIT/SHUTDOWN SECTION *
- *************************/
 
 void phuck_off_init(void) {
     phuck_off_logger_init();
@@ -201,7 +101,3 @@ void phuck_off_shutdown(void) {
     shutdown_handler();
     phuck_off_logger_shutdown();
 }
-
-/********************************
- * END OF INIT/SHUTDOWN SECTION *
- ********************************/
