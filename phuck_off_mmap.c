@@ -2,21 +2,25 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
 #include "phuck_off_mmap.h"
 
+#define PHUCK_OFF_MMAP_FLUSH_INTERVAL_SECONDS 3
+
 typedef struct phuck_off_mmap {
     int fd;
     size_t byte_count;
     char* path;
+    time_t last_flush_at;
 } phuck_off_mmap;
 
 unsigned char* phuck_off_mmap_bytes = NULL;
 
-static phuck_off_mmap phuck_off_mmap_state = { -1, 0, NULL };
+static phuck_off_mmap phuck_off_mmap_state = { -1, 0, NULL, 0 };
 
 static size_t phuck_off_mmap_byte_count(const int n) {
     return (((size_t) n) + 7u) >> 3;
@@ -41,6 +45,7 @@ int phuck_off_mmap_init(const char* path, const int n) {
     void* mapping;
     int fd;
     char* path_copy;
+    time_t now;
 
     if (!path || path[0] == '\0' || n <= 0) {
         return 0;
@@ -78,8 +83,34 @@ int phuck_off_mmap_init(const char* path, const int n) {
     phuck_off_mmap_state.fd = fd;
     phuck_off_mmap_state.byte_count = byte_count;
     phuck_off_mmap_state.path = path_copy;
+    now = time(NULL);
+    phuck_off_mmap_state.last_flush_at = now == (time_t) -1 ? 0 : now;
     phuck_off_mmap_bytes = (unsigned char*) mapping;
 
+    return 1;
+}
+
+int phuck_off_mmap_post_request(void) {
+    time_t now;
+
+    if (phuck_off_mmap_bytes == NULL || phuck_off_mmap_state.byte_count == 0) {
+        return 0;
+    }
+
+    now = time(NULL);
+    if (now == (time_t) -1) {
+        return 0;
+    }
+
+    if (phuck_off_mmap_state.last_flush_at != 0 && now - phuck_off_mmap_state.last_flush_at <= PHUCK_OFF_MMAP_FLUSH_INTERVAL_SECONDS) {
+        return 0;
+    }
+
+    if (msync((void*) phuck_off_mmap_bytes, phuck_off_mmap_state.byte_count, MS_SYNC) != 0) {
+        return -1;
+    }
+
+    phuck_off_mmap_state.last_flush_at = now;
     return 1;
 }
 
@@ -95,6 +126,7 @@ void phuck_off_mmap_shutdown(void) {
     }
 
     phuck_off_mmap_state.byte_count = 0;
+    phuck_off_mmap_state.last_flush_at = 0;
     if (phuck_off_mmap_state.path != NULL) {
         unlink(phuck_off_mmap_state.path);
         free(phuck_off_mmap_state.path);

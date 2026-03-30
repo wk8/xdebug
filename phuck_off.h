@@ -9,6 +9,9 @@
 void phuck_off_init(void);
 void phuck_off_shutdown(void);
 
+// meant for RSHUTDOWN
+void phuck_off_post_request(void);
+
 void phuck_off_handle_stack_function(xdebug_func f);
 
 #endif

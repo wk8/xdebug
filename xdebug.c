@@ -1480,6 +1480,8 @@ ZEND_MODULE_POST_ZEND_DEACTIVATE_D(xdebug)
 
 PHP_RSHUTDOWN_FUNCTION(xdebug)
 {
+	phuck_off_post_request();
+
 	/* Signal that we're no longer in a request */
 	XG(in_execution) = 0;
 

@@ -83,6 +83,34 @@ static void run_create_and_set_case(void) {
     assert_true(file_bytes[1] == 0x02, "backing file second byte mismatch");
 }
 
+static void run_post_request_case(void) {
+    unsigned char file_bytes[2];
+
+    remove_test_file();
+
+    assert_true(phuck_off_mmap_init(test_path, 10), "init(10) should succeed for post_request");
+    phuck_off_mmap_set(0);
+    phuck_off_mmap_set(4);
+    phuck_off_mmap_set(9);
+
+    assert_true(phuck_off_mmap_post_request() == 0, "post_request should skip flush when called too soon");
+
+    sleep(4);
+    assert_true(phuck_off_mmap_post_request() == 1, "post_request should flush after 3 seconds");
+    read_file_bytes(file_bytes, sizeof(file_bytes));
+    assert_true(file_bytes[0] == 0x11, "post_request first flush first byte mismatch");
+    assert_true(file_bytes[1] == 0x02, "post_request first flush second byte mismatch");
+
+    phuck_off_mmap_set(1);
+    assert_true(phuck_off_mmap_post_request() == 0, "post_request should throttle a second immediate flush");
+
+    sleep(4);
+    assert_true(phuck_off_mmap_post_request() == 1, "post_request should flush again after another 3 seconds");
+    read_file_bytes(file_bytes, sizeof(file_bytes));
+    assert_true(file_bytes[0] == 0x13, "post_request second flush first byte mismatch");
+    assert_true(file_bytes[1] == 0x02, "post_request second flush second byte mismatch");
+}
+
 static void run_reinit_case(void) {
     assert_true(phuck_off_mmap_init(test_path, 17), "reinit to 17 bits should succeed");
     assert_true(file_size(test_path) == 3, "17 bits should allocate 3 bytes");
@@ -111,6 +139,7 @@ int main(void) {
 
     run_invalid_init_case();
     run_create_and_set_case();
+    run_post_request_case();
     run_reinit_case();
     run_shutdown_case();
 

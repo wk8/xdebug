@@ -33,8 +33,8 @@ run_test "phuck_off_logger" "$ROOT/phuck_off_tests/phuck_off_logger.c" \
 run_test "phuck_off_mmap" "$ROOT/phuck_off_tests/phuck_off_mmap.c" \
     "$ROOT/phuck_off_mmap.c"
 run_test "phuck_off_function_id" "$ROOT/phuck_off_tests/phuck_off_function_id.c" \
-    -include "$SHIMS_HEADER" "$ROOT/xdebug_hash.c" "$ROOT/xdebug_llist.c" "$ROOT/phuck_off_parser.c" "$ROOT/phuck_off_logger.c"
+    -include "$SHIMS_HEADER" "$ROOT/xdebug_hash.c" "$ROOT/xdebug_llist.c" "$ROOT/phuck_off_parser.c" "$ROOT/phuck_off_logger.c" "$ROOT/phuck_off_mmap.c"
 run_test "phuck_off_parser_lookup" "$ROOT/phuck_off_tests/phuck_off_parser_lookup.c" \
-    -include "$SHIMS_HEADER" "$ROOT/xdebug_hash.c" "$ROOT/xdebug_llist.c" "$ROOT/phuck_off_parser.c" "$ROOT/phuck_off_logger.c"
+    -include "$SHIMS_HEADER" "$ROOT/xdebug_hash.c" "$ROOT/xdebug_llist.c" "$ROOT/phuck_off_parser.c" "$ROOT/phuck_off_logger.c" "$ROOT/phuck_off_mmap.c"
 
 echo "all fork tests passed"
