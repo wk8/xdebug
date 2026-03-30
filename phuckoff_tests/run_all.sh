@@ -2,7 +2,7 @@
 
 set -eu
 
-ROOT="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 CC_BIN="${CC:-cc}"
 BUILD_DIR="$(mktemp -d "${TMPDIR:-/tmp}/xdebug_fork_tests.XXXXXX")"
 
@@ -22,7 +22,7 @@ run_test() {
     "$binary"
 }
 
-run_test "xdebug_hash_resize" "$ROOT/tests/xdebug_hash_resize.c"
-run_test "phuck_off_parser" "$ROOT/tests/phuck_off_parser.c"
+run_test "xdebug_hash_resize" "$ROOT/phuckoff_tests/xdebug_hash_resize.c"
+run_test "phuck_off_parser" "$ROOT/phuckoff_tests/phuck_off_parser.c"
 
 echo "all fork tests passed"
