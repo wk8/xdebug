@@ -45,6 +45,7 @@ static int function_id(const char *path, const int line_no) {
 
     path_len = strlen(path);
     if (!xdebug_hash_find(handler.files, (char *) path, (unsigned int) path_len, &file_entry)) {
+        // we found a file that the dumper missed
         phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "No function map entry for path \"%s\"", path);
         return -1;
     }
@@ -56,6 +57,7 @@ static int function_id(const char *path, const int line_no) {
 
     line_map = (xdebug_hash *) file_entry;
     if (!xdebug_hash_index_find(line_map, (unsigned long) line_no, &line_entry)) {
+        // we found a function that the dumper missed
         phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "No function id entry for \"%s\":%d", path, line_no);
         return -1;
     }
