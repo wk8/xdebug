@@ -42,7 +42,7 @@ static const fixture_case fixture_cases[] = {
 			{"/Users/wk/pushpress/pps-clean/api/v1/app/models/Notifications.php", 91, 1456},
 			{"/Users/wk/pushpress/pps-clean/api/v1/app/models/Checkins.php", 240, 1473},
 			{"/Users/wk/pushpress/pps-clean/api/v1/app/models/PreorderSales.php", 123, 1589},
-			{"/Users/wk/pushpress/pps-clean/api/v1/app/models/ProductInventoryLogs.php", 78, 1654},
+			{"/Users/wk/pushpress/pps-clean/api/v1/app/models/ProductInventoryLogs.php", 78, 1653},
 			{"/Users/wk/pushpress/pps-clean/api/v1/app/models/TransactionLog.php", 71, 1738},
 			{"/Users/wk/pushpress/pps-clean/api/v1/app/models/Products.php", 339, 1781},
 			{"/Users/wk/pushpress/pps-clean/api/v1/app/models/CalendarSessionTypes.php", 15, 2073},
