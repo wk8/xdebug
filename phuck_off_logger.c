@@ -103,7 +103,7 @@ void phuck_off_log(phuck_off_log_level level, const char* format, ...) {
 }
 
 void phuck_off_logger_init(void) {
-   const char* raw_level = getenv(PHUCK_OFF_LOG_LEVEL_ENV_VAR);
+    const char* raw_level = getenv(PHUCK_OFF_LOG_LEVEL_ENV_VAR);
 
     int invalid = 0;
     logger.level = parse_log_level(raw_level, &invalid);

@@ -258,11 +258,10 @@ int xdebug_hash_extended_find(xdebug_hash *h, char *str_key, unsigned int str_ke
 	return 0;
 }
 
-int xdebug_hash_resize(xdebug_hash *h, int slots)
-{
-	xdebug_llist        **new_table;
-	xdebug_llist_element *le;
-	xdebug_hash_element  *he;
+int xdebug_hash_resize(xdebug_hash* h, int slots) {
+	xdebug_llist**        new_table;
+	xdebug_llist_element* le;
+	xdebug_hash_element*  he;
 	int                   i;
 	int                   slot;
 
@@ -281,7 +280,7 @@ int xdebug_hash_resize(xdebug_hash *h, int slots)
 
 	for (i = 0; i < h->slots; ++i) {
 		for (le = XDEBUG_LLIST_HEAD(h->table[i]); le != NULL; le = XDEBUG_LLIST_NEXT(le)) {
-			he = (xdebug_hash_element *) XDEBUG_LLIST_VALP(le);
+			he = (xdebug_hash_element*) XDEBUG_LLIST_VALP(le);
 			slot = xdebug_hash_rehash_slot(slots, &he->key);
 			xdebug_llist_insert_next(new_table[slot], XDEBUG_LLIST_TAIL(new_table[slot]), he);
 		}

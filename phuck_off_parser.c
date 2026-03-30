@@ -10,12 +10,11 @@
 
 typedef struct phuck_off_resize_state {
     int ok;
-    char *error;
+    char* error;
     size_t error_len;
 } phuck_off_resize_state;
 
-static void phuck_off_parser_set_error(char *error, size_t error_len, const char *format, ...)
-{
+static void phuck_off_parser_set_error(char* error, size_t error_len, const char* format, ...) {
     va_list args;
 
     if (!error || error_len == 0) {
@@ -27,17 +26,16 @@ static void phuck_off_parser_set_error(char *error, size_t error_len, const char
     va_end(args);
 }
 
-static char *phuck_off_parser_strdup(const char *value)
-{
+static char* phuck_off_parser_strdup(const char* value) {
     size_t len;
-    char *copy;
+    char* copy;
 
     if (!value) {
         return NULL;
     }
 
     len = strlen(value);
-    copy = (char *) malloc(len + 1);
+    copy = (char*) malloc(len + 1);
     if (!copy) {
         return NULL;
     }
@@ -46,15 +44,14 @@ static char *phuck_off_parser_strdup(const char *value)
     return copy;
 }
 
-static char *phuck_off_parser_read_line(FILE *fp)
-{
-    char *buffer;
-    char *tmp;
+static char* phuck_off_parser_read_line(FILE* fp) {
+    char* buffer;
+    char* tmp;
     size_t capacity = 256;
     size_t length = 0;
     int ch;
 
-    buffer = (char *) malloc(capacity);
+    buffer = (char*) malloc(capacity);
     if (!buffer) {
         return NULL;
     }
@@ -62,7 +59,7 @@ static char *phuck_off_parser_read_line(FILE *fp)
     while ((ch = fgetc(fp)) != EOF) {
         if (length + 1 >= capacity) {
             capacity *= 2;
-            tmp = (char *) realloc(buffer, capacity);
+            tmp = (char*) realloc(buffer, capacity);
             if (!tmp) {
                 free(buffer);
                 return NULL;
@@ -85,8 +82,7 @@ static char *phuck_off_parser_read_line(FILE *fp)
     return buffer;
 }
 
-static void phuck_off_parser_chomp(char *line)
-{
+static void phuck_off_parser_chomp(char* line) {
     size_t len;
 
     if (!line) {
@@ -99,15 +95,13 @@ static void phuck_off_parser_chomp(char *line)
     }
 }
 
-static void phuck_off_parser_files_dtor(void *value)
-{
+static void phuck_off_parser_files_dtor(void* value) {
     if (value) {
-        xdebug_hash_destroy((xdebug_hash *) value);
+        xdebug_hash_destroy((xdebug_hash*) value);
     }
 }
 
-static int phuck_off_parser_target_slots(size_t entries)
-{
+static int phuck_off_parser_target_slots(size_t entries) {
     size_t slots;
 
     if (entries == 0) {
@@ -126,8 +120,7 @@ static int phuck_off_parser_target_slots(size_t entries)
     return (int) slots;
 }
 
-static int phuck_off_parser_maybe_grow_hash(xdebug_hash *hash, char *error, size_t error_len)
-{
+static int phuck_off_parser_maybe_grow_hash(xdebug_hash* hash, char* error, size_t error_len) {
     int target_slots;
 
     if (!hash) {
@@ -153,10 +146,9 @@ static int phuck_off_parser_maybe_grow_hash(xdebug_hash *hash, char *error, size
     return 1;
 }
 
-static void phuck_off_parser_resize_inner_hashes(void *user, xdebug_hash_element *element)
-{
-    phuck_off_resize_state *state = (phuck_off_resize_state *) user;
-    xdebug_hash *inner = (xdebug_hash *) element->ptr;
+static void phuck_off_parser_resize_inner_hashes(void* user, xdebug_hash_element* element) {
+    phuck_off_resize_state* state = (phuck_off_resize_state*) user;
+    xdebug_hash* inner = (xdebug_hash*) element->ptr;
 
     if (!state->ok || !inner) {
         return;
@@ -165,13 +157,12 @@ static void phuck_off_parser_resize_inner_hashes(void *user, xdebug_hash_element
     state->ok = phuck_off_parser_maybe_grow_hash(inner, state->error, state->error_len);
 }
 
-static xdebug_hash *phuck_off_parser_get_or_create_file_lines(xdebug_hash *files, const char *path)
-{
-    xdebug_hash *line_map;
-    void *existing = NULL;
+static xdebug_hash* phuck_off_parser_get_or_create_file_lines(xdebug_hash* files, const char* path) {
+    xdebug_hash* line_map;
+    void* existing = NULL;
 
-    if (xdebug_hash_find(files, (char *) path, (unsigned int) strlen(path), &existing)) {
-        return (xdebug_hash *) existing;
+    if (xdebug_hash_find(files, (char*) path, (unsigned int) strlen(path), &existing)) {
+        return (xdebug_hash*) existing;
     }
 
     line_map = xdebug_hash_alloc(PHUCK_OFF_FILE_LINES_INITIAL_SLOTS, NULL);
@@ -179,7 +170,7 @@ static xdebug_hash *phuck_off_parser_get_or_create_file_lines(xdebug_hash *files
         return NULL;
     }
 
-    if (!xdebug_hash_add(files, (char *) path, (unsigned int) strlen(path), line_map)) {
+    if (!xdebug_hash_add(files, (char*) path, (unsigned int) strlen(path), line_map)) {
         xdebug_hash_destroy(line_map);
         return NULL;
     }
@@ -188,18 +179,17 @@ static xdebug_hash *phuck_off_parser_get_or_create_file_lines(xdebug_hash *files
 }
 
 static int phuck_off_parser_add_function_entry(
-    xdebug_hash *files,
-    char *line,
+    xdebug_hash* files,
+    char* line,
     unsigned long input_line_no,
-    char *error,
+    char* error,
     size_t error_len
-)
-{
-    char *separator;
-    char *path;
-    char *end = NULL;
+) {
+    char* separator;
+    char* path;
+    char* end = NULL;
     unsigned long function_line_no;
-    xdebug_hash *line_map;
+    xdebug_hash* line_map;
 
     separator = strrchr(line, ':');
     if (!separator || separator == line || separator[1] == '\0') {
@@ -223,7 +213,7 @@ static int phuck_off_parser_add_function_entry(
         return 0;
     }
 
-    if (!xdebug_hash_index_add(line_map, function_line_no, (void *) (uintptr_t) input_line_no)) {
+    if (!xdebug_hash_index_add(line_map, function_line_no, (void*) (uintptr_t) input_line_no)) {
         phuck_off_parser_set_error(error, error_len, "failed to store function entry for \"%s\"", path);
         return 0;
     }
@@ -232,14 +222,13 @@ static int phuck_off_parser_add_function_entry(
 }
 
 static int phuck_off_parser_add_ignored_file(
-    xdebug_hash *files,
-    const char *path,
+    xdebug_hash* files,
+    const char* path,
     unsigned long input_line_no,
-    char *error,
+    char* error,
     size_t error_len
-)
-{
-    if (!xdebug_hash_update(files, (char *) path, (unsigned int) strlen(path), NULL)) {
+) {
+    if (!xdebug_hash_update(files, (char*) path, (unsigned int) strlen(path), NULL)) {
         phuck_off_parser_set_error(error, error_len, "failed to store ignored file on line %lu", input_line_no);
         return 0;
     }
@@ -248,23 +237,22 @@ static int phuck_off_parser_add_ignored_file(
 }
 
 int phuck_off_parse_funcs_file(
-    const char *path,
-    xdebug_hash **files_out,
-    char **user_code_root_out,
-    char *error,
+    const char* path,
+    xdebug_hash** files_out,
+    char** user_code_root_out,
+    char* error,
     size_t error_len
-)
-{
+) {
     enum {
         PHUCK_OFF_PARSE_FUNCTIONS = 0,
         PHUCK_OFF_PARSE_ROOT = 1,
         PHUCK_OFF_PARSE_IGNORED = 2
     } state = PHUCK_OFF_PARSE_FUNCTIONS;
 
-    FILE *fp;
-    xdebug_hash *files = NULL;
-    char *line = NULL;
-    char *user_code_root = NULL;
+    FILE* fp;
+    xdebug_hash* files = NULL;
+    char* line = NULL;
+    char* user_code_root = NULL;
     unsigned long input_line_no = 0;
     phuck_off_resize_state resize_state = { 1, error, error_len };
 

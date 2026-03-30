@@ -14,10 +14,10 @@
 #define PHUCK_OFF_GENERATED_FOR_MARKER "### GENERATED FOR ###"
 
 int phuck_off_parse_funcs_file(
-    const char *path,
-    xdebug_hash **files_out,
-    char **user_code_root_out,
-    char *error,
+    const char* path,
+    xdebug_hash** files_out,
+    char** user_code_root_out,
+    char* error,
     size_t error_len
 );
 

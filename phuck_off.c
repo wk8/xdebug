@@ -15,20 +15,20 @@ typedef struct phuck_off {
     int initialized;
     // the root of where the user defined code lives,
     // as set by the func dumper
-    char *user_code_root;
+    char* user_code_root;
     size_t user_code_root_len;
     // maps each absolute file path to a xdebug_hash* mapping
     // its functions' line numbers to their line # in the input file, or NULL if the file is ignored
-    xdebug_hash *files;
+    xdebug_hash* files;
 } phuck_off;
 
 static phuck_off handler = { 0, NULL, 0, NULL };
 
-static int function_id(const char *path, const int line_no) {
+static int function_id(const char* path, const int line_no) {
     size_t path_len;
-    void *file_entry;
-    void *line_entry = NULL;
-    xdebug_hash *line_map;
+    void* file_entry;
+    void* line_entry = NULL;
+    xdebug_hash* line_map;
 
     if (strncmp(path, handler.user_code_root, handler.user_code_root_len) != 0
         || path[handler.user_code_root_len] == '\0'
@@ -39,7 +39,7 @@ static int function_id(const char *path, const int line_no) {
     }
 
     path_len = strlen(path);
-    if (!xdebug_hash_find(handler.files, (char *) path, (unsigned int) path_len, &file_entry)) {
+    if (!xdebug_hash_find(handler.files, (char*) path, (unsigned int) path_len, &file_entry)) {
         // we found a file that the dumper missed
         phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "No function map entry for path \"%s\"", path);
         return -1;
@@ -50,7 +50,7 @@ static int function_id(const char *path, const int line_no) {
         return -1;
     }
 
-    line_map = (xdebug_hash *) file_entry;
+    line_map = (xdebug_hash*) file_entry;
     if (!xdebug_hash_index_find(line_map, (unsigned long) line_no, &line_entry)) {
         // we found a function that the dumper missed
         phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "No function id entry for \"%s\":%d", path, line_no);

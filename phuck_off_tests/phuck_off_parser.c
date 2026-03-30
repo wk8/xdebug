@@ -8,16 +8,14 @@
 
 static int failures = 0;
 
-static void assert_true(int condition, const char *message)
-{
+static void assert_true(int condition, const char* message) {
     if (!condition) {
         fprintf(stderr, "%s\n", message);
         failures = 1;
     }
 }
 
-static void write_fixture_file(FILE *fp)
-{
+static void write_fixture_file(FILE* fp) {
     int i;
 
     for (i = 0; i < 17; i++) {
@@ -32,15 +30,14 @@ static void write_fixture_file(FILE *fp)
     }
 }
 
-int main(void)
-{
+int main(void) {
     char path_template[] = "/tmp/phuck_off_parser.XXXXXX";
     int fd;
-    FILE *fp;
-    xdebug_hash *files = NULL;
-    xdebug_hash *main_lines = NULL;
-    void *value = NULL;
-    char *user_code_root = NULL;
+    FILE* fp;
+    xdebug_hash* files = NULL;
+    xdebug_hash* main_lines = NULL;
+    void* value = NULL;
+    char* user_code_root = NULL;
     char error[512];
 
     fd = mkstemp(path_template);
@@ -74,7 +71,7 @@ int main(void)
             xdebug_hash_find(files, "/tmp/user/code/main.php", sizeof("/tmp/user/code/main.php") - 1, &value),
             "main.php missing from outer hash"
         );
-        main_lines = (xdebug_hash *) value;
+        main_lines = (xdebug_hash*) value;
         assert_true(main_lines != NULL, "main.php should not be ignored");
         if (main_lines) {
             assert_true(main_lines->size == 17, "unexpected main.php inner hash size");

@@ -7,10 +7,10 @@
 #define XDEBUG_PRIVATE_H
 
 typedef struct _xdebug_func {
-	char *class;
-	char *function;
-	int   type;
-	int   internal;
+    char* class;
+    char* function;
+    int   type;
+    int   internal;
 } xdebug_func;
 
 #endif
