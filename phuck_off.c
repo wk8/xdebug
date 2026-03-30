@@ -9,7 +9,6 @@
 #include <string.h>
 
 #include "phuck_off.h"
-#include "phuck_off_logger.h"
 #include "phuck_off_parser.h"
 
 typedef struct phuck_off {
