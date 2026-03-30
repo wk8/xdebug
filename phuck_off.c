@@ -1,5 +1,9 @@
 // wkpo use php_log_err when we can't log???
 
+// wkpo make the scooper get the error logs?
+
+// wkpo make sure no tabs in this file??
+
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -164,6 +168,30 @@ typedef struct phuck_off {
 
 static phuck_off handler = { 0, NULL };
 
+
+/***********************
+ * END OF MAIN SECTION *
+ ***********************/
+
+/******************
+ * PARSER SECTION *
+ ******************/
+
+/*************************
+ * END OF PARSER SECTION *
+ *************************/
+
+#define PHUCK_OFF_FUNCS_PATH "/etc/funcs.txt"
+
+static xdebug_hash *build_path_counts(const char *input_path, unsigned long *out_unique_paths)
+
+
+// wkpo oldies below
+// wkpo oldies below
+// wkpo oldies below
+// wkpo oldies below
+// wkpo oldies below
+
 static void strip_newline(char* s, size_t* len) {
     while (*len > 0) {
         char c = s[*len - 1];
@@ -175,7 +203,7 @@ static void strip_newline(char* s, size_t* len) {
     }
 }
 
-#define PHUCK_OFF_FUNCS_PATH "/etc/funcs.txt"
+
 
 typedef void (*parse_line_cb)(uint32_t line_no, const char *line, size_t len, void *user_data);
 
