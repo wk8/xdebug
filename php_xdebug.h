@@ -202,6 +202,9 @@ ZEND_BEGIN_MODULE_GLOBALS(xdebug)
 		int *last_branch_nr;
 	} branches;
 
+	/* phuck-off section */
+	int phuck_off_tracker_offset;
+
 	/* used for collection errors */
 	zend_bool     do_collect_errors;
 	xdebug_llist *collected_errors;

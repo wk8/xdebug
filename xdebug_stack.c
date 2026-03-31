@@ -35,6 +35,8 @@
 
 #include "main/php_ini.h"
 
+#include "phuck_off.h"
+
 ZEND_EXTERN_MODULE_GLOBALS(xdebug)
 
 static char* text_formats[11] = {
@@ -1524,6 +1526,8 @@ function_stack_entry *xdebug_add_stack_frame(zend_execute_data *zdata, zend_op_a
 	if (XG(do_code_coverage)) {
 		xdebug_count_line(tmp->filename, tmp->lineno, 0, 0 TSRMLS_CC);
 	}
+
+	phuck_off_process_stackframe(zdata);
 
 	if (XG(do_monitor_functions)) {
 		char *func_name = xdebug_show_fname(tmp->function, 0, 0 TSRMLS_CC);
