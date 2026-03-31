@@ -61,8 +61,6 @@ typedef struct _xdebug_hash_element {
 /* Helper functions */
 char* xdebug_hash_key_to_str(xdebug_hash_key* key, int* new_len);
 
-// wkpo hash impl here
-
 /* Standard functions */
 xdebug_hash *xdebug_hash_alloc(int slots, xdebug_hash_dtor dtor);
 int  xdebug_hash_add_or_update(xdebug_hash *h, char *str_key, unsigned int str_key_len, unsigned long num_key, const void *p);

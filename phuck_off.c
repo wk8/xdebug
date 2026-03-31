@@ -1,8 +1,5 @@
 // wkpo use php_log_err when we can't log???
-
 // wkpo make the scooper get the error logs?
-
-// wkpo make sure no tabs in this file??
 
 #include <stdlib.h>
 #include <stdint.h>
