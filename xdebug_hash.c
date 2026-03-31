@@ -295,7 +295,7 @@ int xdebug_hash_resize(xdebug_hash* h, int slots) {
 
 void xdebug_hash_apply(xdebug_hash *h, void *user, void (*cb)(void *, xdebug_hash_element *))
 {
-		 xdebug_llist_element  *le;
+	 xdebug_llist_element  *le;
 	 int                    i;
 
 	 for (i = 0; i < h->slots; ++i) {
