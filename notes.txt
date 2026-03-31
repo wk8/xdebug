@@ -1,8 +1,0 @@
-https://chatgpt.com/c/693d9cb5-a880-8330-8cb5-62d45c4f7c5e
-
-works fairly well
-
-next steps:
-* testing it for static funcs (what else?)
-* for this ^ , add a dummy class to api, and call it from Controllers\InvoiceController->listAction ?
-* generating an indexed set, load it into xdebug, see what hits we get, should ideally only be not our funcs
