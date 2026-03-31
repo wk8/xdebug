@@ -10,6 +10,7 @@
 
 #ifndef XG
 #include "php_xdebug.h"
+ZEND_EXTERN_MODULE_GLOBALS(xdebug)
 #endif
 
 #include "phuck_off.h"
