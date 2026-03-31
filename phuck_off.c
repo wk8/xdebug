@@ -8,6 +8,10 @@
 #include <stdint.h>
 #include <string.h>
 
+#ifndef XG
+#include "php_xdebug.h"
+#endif
+
 #include "phuck_off.h"
 #include "phuck_off_parser.h"
 #include "phuck_off_sanity_check.h"
