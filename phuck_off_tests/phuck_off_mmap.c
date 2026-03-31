@@ -11,8 +11,10 @@
 
 static int failures = 0;
 static char test_path[] = "/tmp/phuck-off.mmap.test.XXXXXX";
-static char* saved_env = NULL;
-static int env_was_set = 0;
+static char* saved_log_level_env = NULL;
+static int log_level_env_was_set = 0;
+static char* saved_no_cleanup_env = NULL;
+static int no_cleanup_env_was_set = 0;
 static char backup_template[] = "/tmp/phuck-off.log.backup.XXXXXX";
 static int backup_exists = 0;
 
@@ -46,27 +48,46 @@ static char* dup_string(const char* value) {
 }
 
 static void preserve_environment(void) {
-    const char* value = getenv(PHUCK_OFF_LOG_LEVEL_ENV_VAR);
+    const char* log_level = getenv(PHUCK_OFF_LOG_LEVEL_ENV_VAR);
+    const char* no_cleanup = getenv(PHUCK_OFF_NO_CLEANUP_ENV_VAR);
 
-    if (value) {
-        saved_env = dup_string(value);
-        env_was_set = 1;
+    if (log_level) {
+        saved_log_level_env = dup_string(log_level);
+        log_level_env_was_set = 1;
     } else {
-        saved_env = NULL;
-        env_was_set = 0;
+        saved_log_level_env = NULL;
+        log_level_env_was_set = 0;
+    }
+
+    if (no_cleanup) {
+        saved_no_cleanup_env = dup_string(no_cleanup);
+        no_cleanup_env_was_set = 1;
+    } else {
+        saved_no_cleanup_env = NULL;
+        no_cleanup_env_was_set = 0;
     }
 }
 
 static void restore_environment(void) {
-    if (env_was_set) {
-        setenv(PHUCK_OFF_LOG_LEVEL_ENV_VAR, saved_env, 1);
+    if (log_level_env_was_set) {
+        setenv(PHUCK_OFF_LOG_LEVEL_ENV_VAR, saved_log_level_env, 1);
     } else {
         unsetenv(PHUCK_OFF_LOG_LEVEL_ENV_VAR);
     }
 
-    free(saved_env);
-    saved_env = NULL;
-    env_was_set = 0;
+    if (no_cleanup_env_was_set) {
+        setenv(PHUCK_OFF_NO_CLEANUP_ENV_VAR, saved_no_cleanup_env, 1);
+    } else {
+        unsetenv(PHUCK_OFF_NO_CLEANUP_ENV_VAR);
+    }
+
+    free(saved_log_level_env);
+    saved_log_level_env = NULL;
+    log_level_env_was_set = 0;
+
+    free(saved_no_cleanup_env);
+    saved_no_cleanup_env = NULL;
+    no_cleanup_env_was_set = 0;
 }
 
 static void backup_existing_log(void) {
@@ -201,6 +222,7 @@ static void run_invalid_init_case(void) {
     remove_test_file();
     remove_test_log();
     setenv(PHUCK_OFF_LOG_LEVEL_ENV_VAR, "trace", 1);
+    unsetenv(PHUCK_OFF_NO_CLEANUP_ENV_VAR);
     phuck_off_logger_init();
 
     assert_true(!phuck_off_mmap_init(test_path, 0), "init(0) should fail");
@@ -220,6 +242,7 @@ static void run_create_and_set_case(void) {
     remove_test_file();
     remove_test_log();
     setenv(PHUCK_OFF_LOG_LEVEL_ENV_VAR, "trace", 1);
+    unsetenv(PHUCK_OFF_NO_CLEANUP_ENV_VAR);
     phuck_off_logger_init();
 
     assert_true(phuck_off_mmap_init(test_path, 10), "init(10) should succeed");
@@ -261,6 +284,7 @@ static void run_init_for_pid_case(void) {
 
     remove_test_log();
     setenv(PHUCK_OFF_LOG_LEVEL_ENV_VAR, "trace", 1);
+    unsetenv(PHUCK_OFF_NO_CLEANUP_ENV_VAR);
     phuck_off_logger_init();
 
     assert_true(phuck_off_mmap_init_for_pid(10), "init_for_pid(10) should succeed");
@@ -275,6 +299,32 @@ static void run_init_for_pid_case(void) {
     phuck_off_logger_shutdown();
 }
 
+static void run_no_cleanup_case(void) {
+    unsigned char file_bytes[2];
+
+    remove_test_file();
+    remove_test_log();
+    setenv(PHUCK_OFF_LOG_LEVEL_ENV_VAR, "trace", 1);
+    setenv(PHUCK_OFF_NO_CLEANUP_ENV_VAR, "1", 1);
+    phuck_off_logger_init();
+
+    assert_true(phuck_off_mmap_init(test_path, 10), "init(10) should succeed for no-cleanup");
+    phuck_off_mmap_set(0);
+    phuck_off_mmap_set(4);
+    phuck_off_mmap_set(9);
+
+    phuck_off_mmap_shutdown();
+
+    assert_true(phuck_off_mmap_bytes == NULL, "no-cleanup shutdown should clear the mapped pointer");
+    assert_true(access(test_path, F_OK) == 0, "no-cleanup shutdown should keep the backing file");
+    read_file_bytes(file_bytes, sizeof(file_bytes));
+    assert_true(file_bytes[0] == 0x11, "no-cleanup shutdown should sync the first byte");
+    assert_true(file_bytes[1] == 0x02, "no-cleanup shutdown should sync the second byte");
+
+    assert_true(unlink(test_path) == 0, "failed to remove no-cleanup backing file");
+    phuck_off_logger_shutdown();
+}
+
 static void run_post_request_case(void) {
     unsigned char file_bytes[2];
     char* log_content;
@@ -282,6 +332,7 @@ static void run_post_request_case(void) {
     remove_test_file();
     remove_test_log();
     setenv(PHUCK_OFF_LOG_LEVEL_ENV_VAR, "trace", 1);
+    unsetenv(PHUCK_OFF_NO_CLEANUP_ENV_VAR);
     phuck_off_logger_init();
 
     assert_true(phuck_off_mmap_init(test_path, 10), "init(10) should succeed for post_request");
@@ -323,6 +374,7 @@ static void run_post_request_case(void) {
 }
 
 static void run_reinit_case(void) {
+    unsetenv(PHUCK_OFF_NO_CLEANUP_ENV_VAR);
     assert_true(phuck_off_mmap_init(test_path, 17), "reinit to 17 bits should succeed");
     assert_true(file_size(test_path) == 3, "17 bits should allocate 3 bytes");
     assert_true(phuck_off_mmap_bytes[0] == 0, "reinit should zero the first byte");
@@ -331,6 +383,7 @@ static void run_reinit_case(void) {
 }
 
 static void run_shutdown_case(void) {
+    unsetenv(PHUCK_OFF_NO_CLEANUP_ENV_VAR);
     phuck_off_mmap_shutdown();
     assert_true(phuck_off_mmap_bytes == NULL, "shutdown should clear the mapped pointer");
     assert_true(access(test_path, F_OK) != 0, "shutdown should remove the backing file");
@@ -356,6 +409,7 @@ int main(void) {
     run_invalid_init_case();
     run_create_and_set_case();
     run_init_for_pid_case();
+    run_no_cleanup_case();
     run_post_request_case();
     run_reinit_case();
     run_shutdown_case();

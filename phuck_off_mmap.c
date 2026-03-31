@@ -21,11 +21,12 @@ typedef struct phuck_off_mmap {
     size_t byte_count;
     char* path;
     time_t last_flush_at;
+    int keep_file_on_shutdown;
 } phuck_off_mmap;
 
 unsigned char* phuck_off_mmap_bytes = NULL;
 
-static phuck_off_mmap phuck_off_mmap_state = { -1, 0, NULL, 0 };
+static phuck_off_mmap phuck_off_mmap_state = { -1, 0, NULL, 0, 0 };
 
 static size_t phuck_off_mmap_byte_count(const int n) {
     return (((size_t) n) + 7u) >> 3;
@@ -65,6 +66,12 @@ static char* phuck_off_mmap_strdup(const char* path) {
 
     memcpy(copy, path, len + 1);
     return copy;
+}
+
+static int phuck_off_mmap_keep_file_on_shutdown(void) {
+    const char* no_cleanup = getenv(PHUCK_OFF_NO_CLEANUP_ENV_VAR);
+
+    return no_cleanup != NULL && strcmp(no_cleanup, "1") == 0;
 }
 
 int phuck_off_mmap_init_for_pid(const int n) {
@@ -138,6 +145,7 @@ int phuck_off_mmap_init(const char* path, const int n) {
     phuck_off_mmap_state.path = path_copy;
     now = time(NULL);
     phuck_off_mmap_state.last_flush_at = now == (time_t) -1 ? 0 : now;
+    phuck_off_mmap_state.keep_file_on_shutdown = phuck_off_mmap_keep_file_on_shutdown();
     phuck_off_mmap_bytes = (unsigned char*) mapping;
     if (now == (time_t) -1) {
         saved_errno = errno;
@@ -247,21 +255,48 @@ void phuck_off_mmap_post_request(void) {
 }
 
 void phuck_off_mmap_shutdown(void) {
+    if (phuck_off_mmap_state.keep_file_on_shutdown && phuck_off_mmap_bytes != NULL && phuck_off_mmap_state.byte_count > 0) {
+        if (msync((void*) phuck_off_mmap_bytes, phuck_off_mmap_state.byte_count, MS_SYNC) != 0) {
+            int saved_errno = errno;
+
+            phuck_off_log(
+                PHUCK_OFF_LOG_LEVEL_ERROR,
+                "msync() failed during phuck_off_mmap_shutdown for \"%s\": %s (%d)",
+                phuck_off_mmap_state.path,
+                strerror(saved_errno),
+                saved_errno
+            );
+        }
+    }
+
     if (phuck_off_mmap_bytes != NULL) {
         munmap((void*) phuck_off_mmap_bytes, phuck_off_mmap_state.byte_count);
         phuck_off_mmap_bytes = NULL;
     }
 
     if (phuck_off_mmap_state.fd >= 0) {
-        close(phuck_off_mmap_state.fd);
+        if (close(phuck_off_mmap_state.fd) != 0) {
+            int saved_errno = errno;
+
+            phuck_off_log(
+                PHUCK_OFF_LOG_LEVEL_ERROR,
+                "close() failed during phuck_off_mmap_shutdown for \"%s\": %s (%d)",
+                phuck_off_mmap_state.path,
+                strerror(saved_errno),
+                saved_errno
+            );
+        }
         phuck_off_mmap_state.fd = -1;
     }
 
     phuck_off_mmap_state.byte_count = 0;
     phuck_off_mmap_state.last_flush_at = 0;
     if (phuck_off_mmap_state.path != NULL) {
-        unlink(phuck_off_mmap_state.path);
+        if (!phuck_off_mmap_state.keep_file_on_shutdown) {
+            unlink(phuck_off_mmap_state.path);
+        }
         free(phuck_off_mmap_state.path);
         phuck_off_mmap_state.path = NULL;
     }
+    phuck_off_mmap_state.keep_file_on_shutdown = 0;
 }

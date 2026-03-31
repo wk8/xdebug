@@ -1,6 +1,10 @@
 #ifndef __HAVE_PHUCK_OFF_MMAP_H__
 #define __HAVE_PHUCK_OFF_MMAP_H__
 
+#ifndef PHUCK_OFF_NO_CLEANUP_ENV_VAR
+#define PHUCK_OFF_NO_CLEANUP_ENV_VAR "PHUCK_OFF_NO_CLEANUP"
+#endif
+
 // Exposed so phuck_off_mmap_set() can stay as a tiny hot-path inline.
 extern unsigned char* phuck_off_mmap_bytes;
 
