@@ -31,9 +31,89 @@ typedef struct phuck_off {
 
 static phuck_off handler = { 0, NULL, 0, 0, NULL };
 
-// wkpo why the forward declaration??
-static int function_id(const char* path, const int line_no);
-static void shutdown_handler(void);
+static int function_id(const char* path, const int line_no) {
+    size_t path_len;
+    void* file_entry;
+    void* line_entry = NULL;
+    xdebug_hash* line_map;
+
+    if (strncmp(path, handler.user_code_root, handler.user_code_root_len) != 0
+        || path[handler.user_code_root_len] == '\0'
+        || path[handler.user_code_root_len] != '/'
+    ) {
+        // not part of the directory we care about
+        return -1;
+    }
+
+    path_len = strlen(path);
+    if (!xdebug_hash_find(handler.files, (char*) path, (unsigned int) path_len, &file_entry)) {
+        // we found a file that the dumper missed
+        phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "No function map entry for path \"%s\"", path);
+        return -1;
+    }
+
+    if (file_entry == NULL) {
+        // means we ignore this file
+        return -1;
+    }
+
+    line_map = (xdebug_hash*) file_entry;
+    if (!xdebug_hash_index_find(line_map, (unsigned long) line_no, &line_entry)) {
+        // we found a function that the dumper missed
+        phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "No function id entry for \"%s\":%d", path, line_no);
+        return -1;
+    }
+
+    return (int) (uintptr_t) line_entry;
+}
+
+static void shutdown_handler(void) {
+    if (handler.files != NULL) {
+        xdebug_hash_destroy(handler.files);
+        handler.files = NULL;
+    }
+    if (handler.user_code_root != NULL) {
+        free(handler.user_code_root);
+        handler.user_code_root = NULL;
+    }
+    handler.user_code_root_len = 0;
+    handler.function_count = 0;
+    handler.initialized = 0;
+}
+
+static void init_handler(void) {
+    char error[512];
+
+    shutdown_handler();
+
+    if (!phuck_off_parse_funcs_file(PHUCK_OFF_FUNCS_PATH, &handler.files, &handler.user_code_root, &handler.function_count, error, sizeof(error))) {
+        phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "Failed to initialize handler from %s: %s", PHUCK_OFF_FUNCS_PATH, error);
+        handler.initialized = 0;
+        return;
+    }
+
+    handler.user_code_root_len = strlen(handler.user_code_root);
+    handler.initialized = 1;
+}
+
+void phuck_off_init(void) {
+    phuck_off_logger_init();
+    phuck_off_sanity_check_init();
+    init_handler();
+    if (handler.initialized && !phuck_off_mmap_init_for_pid((int) handler.function_count)) {
+        shutdown_handler();
+    }
+}
+
+void phuck_off_post_request(void) {
+    phuck_off_mmap_post_request();
+}
+
+void phuck_off_shutdown(void) {
+    phuck_off_mmap_shutdown();
+    shutdown_handler();
+    phuck_off_logger_shutdown();
+}
 
 void phuck_off_process_stackframe(zend_execute_data* zdata) {
     if (!zdata || !handler.initialized) {
@@ -82,89 +162,4 @@ void phuck_off_process_stackframe(zend_execute_data* zdata) {
     if (func_id > 0) {
         phuck_off_mmap_set(func_id - 1);
     }
-}
-
-static int function_id(const char* path, const int line_no) {
-    size_t path_len;
-    void* file_entry;
-    void* line_entry = NULL;
-    xdebug_hash* line_map;
-
-    if (strncmp(path, handler.user_code_root, handler.user_code_root_len) != 0
-        || path[handler.user_code_root_len] == '\0'
-        || path[handler.user_code_root_len] != '/'
-    ) {
-        // not part of the directory we care about
-        return -1;
-    }
-
-    path_len = strlen(path);
-    if (!xdebug_hash_find(handler.files, (char*) path, (unsigned int) path_len, &file_entry)) {
-        // we found a file that the dumper missed
-        phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "No function map entry for path \"%s\"", path);
-        return -1;
-    }
-
-    if (file_entry == NULL) {
-        // means we ignore this file
-        return -1;
-    }
-
-    line_map = (xdebug_hash*) file_entry;
-    if (!xdebug_hash_index_find(line_map, (unsigned long) line_no, &line_entry)) {
-        // we found a function that the dumper missed
-        phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "No function id entry for \"%s\":%d", path, line_no);
-        return -1;
-    }
-
-    return (int) (uintptr_t) line_entry;
-}
-
-static void init_handler(void) {
-    char error[512];
-
-    shutdown_handler();
-
-    if (!phuck_off_parse_funcs_file(PHUCK_OFF_FUNCS_PATH, &handler.files, &handler.user_code_root, &handler.function_count, error, sizeof(error))) {
-        phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "Failed to initialize handler from %s: %s", PHUCK_OFF_FUNCS_PATH, error);
-        handler.initialized = 0;
-        return;
-    }
-
-    handler.user_code_root_len = strlen(handler.user_code_root);
-    handler.initialized = 1;
-}
-
-static void shutdown_handler(void) {
-    if (handler.files != NULL) {
-        xdebug_hash_destroy(handler.files);
-        handler.files = NULL;
-    }
-    if (handler.user_code_root != NULL) {
-        free(handler.user_code_root);
-        handler.user_code_root = NULL;
-    }
-    handler.user_code_root_len = 0;
-    handler.function_count = 0;
-    handler.initialized = 0;
-}
-
-
-void phuck_off_init(void) {
-    phuck_off_logger_init();
-    phuck_off_sanity_check_init();
-    init_handler();
-    if (handler.initialized && !phuck_off_mmap_init_for_pid((int) handler.function_count)) {
-        shutdown_handler();
-    }
-}
-
-void phuck_off_post_request(void) {
-    phuck_off_mmap_post_request();
-}
-
-void phuck_off_shutdown(void) {
-    phuck_off_mmap_shutdown();
-    shutdown_handler();
-    phuck_off_logger_shutdown();
 }
