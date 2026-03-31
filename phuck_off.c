@@ -118,6 +118,11 @@ void phuck_off_shutdown(void) {
     phuck_off_logger_shutdown();
 }
 
+// this is the meat of our whole fork
+// the idea is simple: when a new stack frame appears, if it's a user function that we care about,
+// we set the mmap bit for that function to 1
+// the added subtlety is that we also cache the function ID in the zen struct for it, to avoid
+// repeated hash table lookups
 void phuck_off_process_stackframe(zend_execute_data* zdata) {
     if (!zdata || !handler.initialized) {
         return;
