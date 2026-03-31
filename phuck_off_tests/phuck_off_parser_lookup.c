@@ -321,10 +321,10 @@ static void run_fixture_case(const fixture_case* fixture) {
 
     snprintf(message, sizeof(message), "missing-line error log missing for %s", fixture->name);
     assert_contains(log_content, expected_missing_line, message);
-    snprintf(message, sizeof(message), "line-zero error log missing for %s", fixture->name);
-    assert_contains(log_content, expected_line_zero, message);
     snprintf(message, sizeof(message), "missing-file error log missing for %s", fixture->name);
     assert_contains(log_content, expected_missing_file, message);
+    snprintf(message, sizeof(message), "line-zero require path should not emit error log for %s", fixture->name);
+    assert_not_contains(log_content, expected_line_zero, message);
     snprintf(message, sizeof(message), "ignored path should not emit error log for %s", fixture->name);
     assert_not_contains(log_content, fixture->ignored_path, message);
     snprintf(message, sizeof(message), "prefix-only path should not emit error log for %s", fixture->name);

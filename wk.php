@@ -32,6 +32,10 @@ function stepFour()
     logMessage("Final step");
 }
 
+function unused2() {
+    echo "nope again";
+}
+
 function logMessage($msg)
 {
     echo $msg . PHP_EOL;

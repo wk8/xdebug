@@ -38,6 +38,11 @@ static int function_id(const char* path, const int line_no) {
     void* line_entry = NULL;
     xdebug_hash* line_map;
 
+    if (line_no == 0) {
+        // file is being required
+        return -1;
+    }
+
     if (strncmp(path, handler.user_code_root, handler.user_code_root_len) != 0
         || path[handler.user_code_root_len] == '\0'
         || path[handler.user_code_root_len] != '/'
