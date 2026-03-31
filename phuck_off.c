@@ -24,6 +24,58 @@ typedef struct phuck_off {
 
 static phuck_off handler = { 0, NULL, 0, NULL };
 
+// wkpo explain
+void phuck_off_process_stackframe(zend_execute_data *zdata) {
+    if (!zdata) {
+        return;
+    }
+
+    zend_function* func = zdata->function_state.function;
+    if (!func || func->type == ZEND_USER_FUNCTION) {
+        return;
+    }
+
+    zend_op_array* oa = &func->op_array;
+    const char* path = oa->filename;
+    if (!path) {
+        return;
+    }
+    const int line_no = oa->line_start;
+    phuck_off_log(PHUCK_OFF_LOG_LEVEL_TRACE, "Frame calling user function %s:%d", path, line_no);
+
+    const int phuck_off_offset = XG(phuck_off_tracker_offset);
+    const int cached_id = (int) (intptr_t) (oa->reserved[reserved_idx]);
+
+    int retrieve_from_handler = cached_id == 0 ? 1 : 0;
+    if (!retrieve_from_handler) {
+        // wkpo2: here, draw a random number, and with a probability equal to that defined in PHUCK_OFF_SANITY_CHECK_SAMPLING, defaulting to 5%, flip retrieve_from_handler to 1
+    }
+
+    int func_id = cached_id;
+    if (retrieve_from_handler) {
+        func_id = function_id(path, line_no);
+
+        if (cached_id == 0) {
+            oa->reserved[phuck_off_offset] = (void*)(intptr_t)func_id;
+            phuck_off_log(PHUCK_OFF_LOG_LEVEL_TRACE, "Caching: function %s:%d is ID %d", path, line_no, func_id);
+        } else {
+            // already cached
+            if (cached_id == func_id) {
+                phuck_off_log(PHUCK_OFF_LOG_LEVEL_TRACE, "Cache is consistent, function %s:%d is ID %d", path, line_no, func_id);
+            } else {
+                phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "Cache error!! function %s:%d is ID %d, but cached is %d",
+                              path, line_no, func_id, cached_id);
+            }
+        }
+    } else {
+        phuck_off_log(PHUCK_OFF_LOG_LEVEL_TRACE, "Already cached: function %s:%d is ID %d", path, line_no, func_id);
+    }
+
+    if (func_id != -1) {
+        phuck_off_mmap_set(func_id);
+    }
+}
+
 static int function_id(const char* path, const int line_no) {
     size_t path_len;
     void* file_entry;
