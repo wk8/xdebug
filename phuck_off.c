@@ -4,7 +4,6 @@
 
 // wkpo make sure no tabs in this file??
 
-#include <errno.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
@@ -98,18 +97,7 @@ void phuck_off_init(void) {
 }
 
 void phuck_off_post_request(void) {
-    int sync_result = phuck_off_mmap_post_request();
-
-    if (sync_result < 0) {
-        int saved_errno = errno;
-
-        phuck_off_log(
-            PHUCK_OFF_LOG_LEVEL_ERROR,
-            "phuck_off_mmap_post_request failed: %s (%d)",
-            strerror(saved_errno),
-            saved_errno
-        );
-    }
+    phuck_off_mmap_post_request();
 }
 
 void phuck_off_shutdown(void) {

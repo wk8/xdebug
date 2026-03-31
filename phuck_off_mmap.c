@@ -1,12 +1,15 @@
+#include <errno.h>
 #include <fcntl.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 #include <time.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "phuck_off_logger.h"
 #include "phuck_off_mmap.h"
 
 #define PHUCK_OFF_MMAP_FLUSH_INTERVAL_SECONDS 3
@@ -90,28 +93,96 @@ int phuck_off_mmap_init(const char* path, const int n) {
     return 1;
 }
 
-int phuck_off_mmap_post_request(void) {
+void phuck_off_mmap_post_request(void) {
     time_t now;
+    int saved_errno;
+    long elapsed_since_flush;
+    long duration_sec;
+    long duration_usec;
+    struct timeval start_time;
+    struct timeval end_time;
+    unsigned long duration_us;
 
     if (phuck_off_mmap_bytes == NULL || phuck_off_mmap_state.byte_count == 0) {
-        return 0;
+        phuck_off_log(PHUCK_OFF_LOG_LEVEL_TRACE, "phuck_off_mmap_post_request: syncing=no reason=no-active-mmap");
+        return;
     }
 
     now = time(NULL);
     if (now == (time_t) -1) {
-        return 0;
+        saved_errno = errno;
+        phuck_off_log(
+            PHUCK_OFF_LOG_LEVEL_ERROR,
+            "time() failed during phuck_off_mmap_post_request: %s (%d)",
+            strerror(saved_errno),
+            saved_errno
+        );
+        return;
     }
 
-    if (phuck_off_mmap_state.last_flush_at != 0 && now - phuck_off_mmap_state.last_flush_at <= PHUCK_OFF_MMAP_FLUSH_INTERVAL_SECONDS) {
-        return 0;
+    elapsed_since_flush = phuck_off_mmap_state.last_flush_at == 0 ? -1 : (long) (now - phuck_off_mmap_state.last_flush_at);
+    if (phuck_off_mmap_state.last_flush_at != 0 && elapsed_since_flush <= PHUCK_OFF_MMAP_FLUSH_INTERVAL_SECONDS) {
+        phuck_off_log(
+            PHUCK_OFF_LOG_LEVEL_TRACE,
+            "phuck_off_mmap_post_request: syncing=no reason=throttled elapsed=%ld threshold=%d path=\"%s\"",
+            elapsed_since_flush,
+            PHUCK_OFF_MMAP_FLUSH_INTERVAL_SECONDS,
+            phuck_off_mmap_state.path
+        );
+        return;
+    }
+
+    if (gettimeofday(&start_time, NULL) != 0) {
+        saved_errno = errno;
+        phuck_off_log(
+            PHUCK_OFF_LOG_LEVEL_ERROR,
+            "gettimeofday() failed before msync() for \"%s\": %s (%d)",
+            phuck_off_mmap_state.path,
+            strerror(saved_errno),
+            saved_errno
+        );
+        return;
     }
 
     if (msync((void*) phuck_off_mmap_bytes, phuck_off_mmap_state.byte_count, MS_SYNC) != 0) {
-        return -1;
+        saved_errno = errno;
+        phuck_off_log(
+            PHUCK_OFF_LOG_LEVEL_ERROR,
+            "msync() failed for \"%s\": %s (%d)",
+            phuck_off_mmap_state.path,
+            strerror(saved_errno),
+            saved_errno
+        );
+        return;
     }
 
+    if (gettimeofday(&end_time, NULL) != 0) {
+        saved_errno = errno;
+        phuck_off_log(
+            PHUCK_OFF_LOG_LEVEL_ERROR,
+            "gettimeofday() failed after msync() for \"%s\": %s (%d)",
+            phuck_off_mmap_state.path,
+            strerror(saved_errno),
+            saved_errno
+        );
+        return;
+    }
+
+    duration_sec = end_time.tv_sec - start_time.tv_sec;
+    duration_usec = end_time.tv_usec - start_time.tv_usec;
+    if (duration_usec < 0) {
+        duration_sec--;
+        duration_usec += 1000000;
+    }
+    duration_us = (unsigned long) duration_sec * 1000000ul + (unsigned long) duration_usec;
     phuck_off_mmap_state.last_flush_at = now;
-    return 1;
+    phuck_off_log(
+        PHUCK_OFF_LOG_LEVEL_DEBUG,
+        "phuck_off_mmap_post_request: syncing=yes bytes=%lu duration_us=%lu path=\"%s\"",
+        (unsigned long) phuck_off_mmap_state.byte_count,
+        duration_us,
+        phuck_off_mmap_state.path
+    );
 }
 
 void phuck_off_mmap_shutdown(void) {
