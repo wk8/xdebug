@@ -33,11 +33,6 @@ typedef struct phuck_off {
 static phuck_off handler = { 0, NULL, 0, 0, NULL };
 
 static int function_id(const char* path, const int line_no) {
-    size_t path_len;
-    void* file_entry;
-    void* line_entry = NULL;
-    xdebug_hash* line_map;
-
     if (line_no == 0) {
         // file is being required
         return -1;
@@ -51,7 +46,8 @@ static int function_id(const char* path, const int line_no) {
         return -1;
     }
 
-    path_len = strlen(path);
+    const size_t path_len = strlen(path);
+    void* file_entry;
     if (!xdebug_hash_find(handler.files, (char*) path, (unsigned int) path_len, &file_entry)) {
         // we found a file that the dumper missed
         phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "No function map entry for path \"%s\"", path);
@@ -63,7 +59,8 @@ static int function_id(const char* path, const int line_no) {
         return -1;
     }
 
-    line_map = (xdebug_hash*) file_entry;
+    xdebug_hash* line_map = (xdebug_hash*) file_entry;
+    void* line_entry = NULL;
     if (!xdebug_hash_index_find(line_map, (unsigned long) line_no, &line_entry)) {
         // we found a function that the dumper missed
         phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "No function id entry for \"%s\":%d", path, line_no);
