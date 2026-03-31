@@ -1,5 +1,6 @@
 # d build . -t xdebug_dev && d run -v $(pwd):/app --name xdebug_dev -it xdebug_dev
 # d rm -f xdebug_dev
+# d exec -it xdebug_dev bash
 
 FROM wk88/php-func-finder:404ef8b10798 AS func-finder
 
