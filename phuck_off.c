@@ -44,7 +44,7 @@ void phuck_off_process_stackframe(zend_execute_data *zdata) {
     phuck_off_log(PHUCK_OFF_LOG_LEVEL_TRACE, "Frame calling user function %s:%d", path, line_no);
 
     const int phuck_off_offset = XG(phuck_off_tracker_offset);
-    const int cached_id = (int) (intptr_t) (oa->reserved[reserved_idx]);
+    const int cached_id = (int) (intptr_t) (oa->reserved[phuck_off_offset]);
 
     int retrieve_from_handler = cached_id == 0 ? 1 : 0;
     if (!retrieve_from_handler) {
