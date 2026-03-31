@@ -63,6 +63,8 @@
 #include "xdebug_tracing.h"
 #include "usefulstuff.h"
 
+#include "phuck_off.h"
+
 /* execution redirection functions */
 zend_op_array* (*old_compile_file)(zend_file_handle* file_handle, int type TSRMLS_DC);
 zend_op_array* xdebug_compile_file(zend_file_handle*, int TSRMLS_DC);
@@ -439,6 +441,9 @@ static void php_xdebug_init_globals (zend_xdebug_globals *xg TSRMLS_DC)
 	/* Get reserved offset */
 	xg->dead_code_analysis_tracker_offset = zend_xdebug_global_offset;
 	xg->dead_code_last_start_id = 1;
+
+	/* and for phuck-off as well */
+	xg->phuck_off_tracker_offset = zend_xdebug_global_offset + 1;
 
 	/* Override header generation in SAPI */
 	if (sapi_module.header_handler != xdebug_header_handler) {
@@ -886,6 +891,8 @@ PHP_MINIT_FUNCTION(xdebug)
 	XG(breakpoint_count) = 0;
 	XG(output_is_tty) = OUTPUT_NOT_CHECKED;
 
+	phuck_off_init();
+
 	return SUCCESS;
 }
 
@@ -1041,6 +1048,9 @@ PHP_MSHUTDOWN_FUNCTION(xdebug)
 			}
 		}
 	}
+
+	phuck_off_shutdown();
+
 	return SUCCESS;
 }
 
@@ -1260,6 +1270,7 @@ PHP_RINIT_FUNCTION(xdebug)
 	XG(functions_to_monitor) = NULL;
 	XG(monitored_functions_found) = xdebug_llist_alloc(xdebug_monitored_function_dtor);
 	XG(dead_code_analysis_tracker_offset) = zend_xdebug_global_offset;
+
 	XG(dead_code_last_start_id) = 1;
 	XG(previous_filename) = "";
 	XG(previous_file) = NULL;
@@ -1466,6 +1477,8 @@ ZEND_MODULE_POST_ZEND_DEACTIVATE_D(xdebug)
 
 PHP_RSHUTDOWN_FUNCTION(xdebug)
 {
+	phuck_off_post_request();
+
 	/* Signal that we're no longer in a request */
 	XG(in_execution) = 0;
 
@@ -2907,6 +2920,7 @@ ZEND_DLEXPORT void xdebug_init_oparray(zend_op_array *op_array)
 {
 	TSRMLS_FETCH();
 	op_array->reserved[XG(dead_code_analysis_tracker_offset)] = 0;
+	op_array->reserved[XG(phuck_off_tracker_offset)] = 0;
 }
 
 #ifndef ZEND_EXT_API

@@ -67,6 +67,50 @@ static xdebug_ui32 xdebug_hash_num(xdebug_ui32 key)
 	return key;
 }
 
+static void hash_element_dtor(void *u, void *ele);
+
+static xdebug_llist **xdebug_hash_table_alloc(int slots)
+{
+	xdebug_llist **table;
+	int            i;
+
+	table = (xdebug_llist **) malloc(slots * sizeof(xdebug_llist *));
+	if (!table) {
+		return NULL;
+	}
+	for (i = 0; i < slots; ++i) {
+		table[i] = xdebug_llist_alloc((xdebug_llist_dtor) hash_element_dtor);
+	}
+
+	return table;
+}
+
+static void xdebug_hash_table_destroy_nodes(xdebug_llist **table, int slots)
+{
+	xdebug_llist_element *le;
+	xdebug_llist_element *next;
+	int                   i;
+
+	for (i = 0; i < slots; ++i) {
+		for (le = XDEBUG_LLIST_HEAD(table[i]); le != NULL; le = next) {
+			next = XDEBUG_LLIST_NEXT(le);
+			free(le);
+		}
+		free(table[i]);
+	}
+
+	free(table);
+}
+
+static int xdebug_hash_rehash_slot(int slots, xdebug_hash_key *key)
+{
+	if (key->type == XDEBUG_HASH_KEY_IS_STRING) {
+		return xdebug_hash_str(key->value.str.val, key->value.str.len) % slots;
+	}
+
+	return xdebug_hash_num(key->value.num) % slots;
+}
+
 static void hash_element_dtor(void *u, void *ele)
 {
 	xdebug_hash_element *e = (xdebug_hash_element *) ele;
@@ -86,17 +130,13 @@ static void hash_element_dtor(void *u, void *ele)
 xdebug_hash *xdebug_hash_alloc(int slots, xdebug_hash_dtor dtor)
 {
 	xdebug_hash *h;
-	int          i;
 
 	h = malloc(sizeof(xdebug_hash));
 	h->dtor  = dtor;
 	h->size  = 0;
 	h->slots = slots;
 
-	h->table = (xdebug_llist **) malloc(slots * sizeof(xdebug_llist *));
-	for (i = 0; i < h->slots; ++i) {
-		h->table[i] = xdebug_llist_alloc((xdebug_llist_dtor) hash_element_dtor);
-	}
+	h->table = xdebug_hash_table_alloc(slots);
 
 	return h;
 }
@@ -216,6 +256,41 @@ int xdebug_hash_extended_find(xdebug_hash *h, char *str_key, unsigned int str_ke
 	}
 
 	return 0;
+}
+
+int xdebug_hash_resize(xdebug_hash* h, int slots) {
+	xdebug_llist**        new_table;
+	xdebug_llist_element* le;
+	xdebug_hash_element*  he;
+	int                   i;
+	int                   slot;
+
+	if (!h || slots <= 0) {
+		return 0;
+	}
+
+	if (h->slots == slots) {
+		return 1;
+	}
+
+	new_table = xdebug_hash_table_alloc(slots);
+	if (!new_table) {
+		return 0;
+	}
+
+	for (i = 0; i < h->slots; ++i) {
+		for (le = XDEBUG_LLIST_HEAD(h->table[i]); le != NULL; le = XDEBUG_LLIST_NEXT(le)) {
+			he = (xdebug_hash_element*) XDEBUG_LLIST_VALP(le);
+			slot = xdebug_hash_rehash_slot(slots, &he->key);
+			xdebug_llist_insert_next(new_table[slot], XDEBUG_LLIST_TAIL(new_table[slot]), he);
+		}
+	}
+
+	xdebug_hash_table_destroy_nodes(h->table, h->slots);
+	h->table = new_table;
+	h->slots = slots;
+
+	return 1;
 }
 
 void xdebug_hash_apply(xdebug_hash *h, void *user, void (*cb)(void *, xdebug_hash_element *))
