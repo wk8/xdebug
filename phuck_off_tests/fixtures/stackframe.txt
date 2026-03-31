@@ -1,0 +1,5 @@
+/tmp/phuck-off-root/app/main.php:10
+/tmp/phuck-off-root/app/other.php:20
+### GENERATED FOR ###
+/tmp/phuck-off-root
+/tmp/phuck-off-root/vendor/ignored.php

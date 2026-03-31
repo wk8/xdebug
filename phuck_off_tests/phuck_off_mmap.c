@@ -196,22 +196,41 @@ static void remove_test_file(void) {
 }
 
 static void run_invalid_init_case(void) {
+    char* log_content;
+
     remove_test_file();
+    remove_test_log();
+    setenv(PHUCK_OFF_LOG_LEVEL_ENV_VAR, "trace", 1);
+    phuck_off_logger_init();
 
     assert_true(!phuck_off_mmap_init(test_path, 0), "init(0) should fail");
     assert_true(access(test_path, F_OK) != 0, "init(0) should not create a backing file");
+    log_content = read_log_file();
+    assert_contains(log_content, "Failed to initialize phuck-off mmap path=\"", "init(0) should log an init failure");
+    assert_contains(log_content, "invalid function count", "init(0) should log invalid function count");
+    free(log_content);
+
+    phuck_off_logger_shutdown();
 }
 
 static void run_create_and_set_case(void) {
     unsigned char file_bytes[2];
+    char* log_content;
 
     remove_test_file();
+    remove_test_log();
+    setenv(PHUCK_OFF_LOG_LEVEL_ENV_VAR, "trace", 1);
+    phuck_off_logger_init();
 
     assert_true(phuck_off_mmap_init(test_path, 10), "init(10) should succeed");
     assert_true(phuck_off_mmap_bytes != NULL, "mapped bytes should be available after init");
     assert_true(file_size(test_path) == 2, "10 bits should allocate 2 bytes");
     assert_true(phuck_off_mmap_bytes[0] == 0, "first byte should be zero after init");
     assert_true(phuck_off_mmap_bytes[1] == 0, "second byte should be zero after init");
+    log_content = read_log_file();
+    assert_contains(log_content, "Initialized phuck-off mmap path=\"", "init(10) should log mmap path");
+    assert_contains(log_content, test_path, "init(10) should log the exact mmap path");
+    free(log_content);
 
     phuck_off_mmap_set(0);
     phuck_off_mmap_set(4);
@@ -225,6 +244,35 @@ static void run_create_and_set_case(void) {
     read_file_bytes(file_bytes, sizeof(file_bytes));
     assert_true(file_bytes[0] == 0x11, "backing file first byte mismatch");
     assert_true(file_bytes[1] == 0x02, "backing file second byte mismatch");
+
+    phuck_off_logger_shutdown();
+}
+
+static void run_init_for_pid_case(void) {
+    char mmap_path[64];
+    char* log_content;
+    const int written = snprintf(mmap_path, sizeof(mmap_path), "/tmp/phuck_off_map_%ld", (long) getpid());
+
+    assert_true(written > 0 && (size_t) written < sizeof(mmap_path), "failed to build expected pid mmap path");
+
+    if (unlink(mmap_path) != 0 && errno != ENOENT) {
+        assert_true(0, "failed to remove stale pid mmap file");
+    }
+
+    remove_test_log();
+    setenv(PHUCK_OFF_LOG_LEVEL_ENV_VAR, "trace", 1);
+    phuck_off_logger_init();
+
+    assert_true(phuck_off_mmap_init_for_pid(10), "init_for_pid(10) should succeed");
+    assert_true(access(mmap_path, F_OK) == 0, "init_for_pid(10) should create the pid-based backing file");
+    log_content = read_log_file();
+    assert_contains(log_content, "Initialized phuck-off mmap path=\"", "init_for_pid(10) should log mmap path");
+    assert_contains(log_content, mmap_path, "init_for_pid(10) should log the exact pid mmap path");
+    free(log_content);
+
+    phuck_off_mmap_shutdown();
+    assert_true(access(mmap_path, F_OK) != 0, "shutdown should remove the pid-based backing file");
+    phuck_off_logger_shutdown();
 }
 
 static void run_post_request_case(void) {
@@ -307,6 +355,7 @@ int main(void) {
 
     run_invalid_init_case();
     run_create_and_set_case();
+    run_init_for_pid_case();
     run_post_request_case();
     run_reinit_case();
     run_shutdown_case();

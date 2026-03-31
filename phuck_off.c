@@ -10,28 +10,34 @@
 
 #include "phuck_off.h"
 #include "phuck_off_parser.h"
+#include "phuck_off_sanity_check.h"
 
 typedef struct phuck_off {
     int initialized;
+
     // the root of where the user defined code lives,
     // as set by the func dumper
     char* user_code_root;
     size_t user_code_root_len;
+    size_t function_count;
     // maps each absolute file path to a xdebug_hash* mapping
     // its functions' line numbers to their line # in the input file, or NULL if the file is ignored
     xdebug_hash* files;
 } phuck_off;
 
-static phuck_off handler = { 0, NULL, 0, NULL };
+static phuck_off handler = { 0, NULL, 0, 0, NULL };
 
-// wkpo explain
-void phuck_off_process_stackframe(zend_execute_data *zdata) {
-    if (!zdata) {
+// wkpo why the forward declaration??
+static int function_id(const char* path, const int line_no);
+static void shutdown_handler(void);
+
+void phuck_off_process_stackframe(zend_execute_data* zdata) {
+    if (!zdata || !handler.initialized) {
         return;
     }
 
     zend_function* func = zdata->function_state.function;
-    if (!func || func->type == ZEND_USER_FUNCTION) {
+    if (!func || func->type != ZEND_USER_FUNCTION) {
         return;
     }
 
@@ -40,39 +46,37 @@ void phuck_off_process_stackframe(zend_execute_data *zdata) {
     if (!path) {
         return;
     }
-    const int line_no = oa->line_start;
-    phuck_off_log(PHUCK_OFF_LOG_LEVEL_TRACE, "Frame calling user function %s:%d", path, line_no);
 
     const int phuck_off_offset = XG(phuck_off_tracker_offset);
-    const int cached_id = (int) (intptr_t) (oa->reserved[phuck_off_offset]);
-
+    const int line_no = oa->line_start;
+    const int cached_id = (int) (intptr_t) oa->reserved[phuck_off_offset];
     int retrieve_from_handler = cached_id == 0 ? 1 : 0;
+    int func_id = cached_id;
+
+    phuck_off_log(PHUCK_OFF_LOG_LEVEL_TRACE, "Frame calling user function %s:%d", path, line_no);
     if (!retrieve_from_handler) {
-        // wkpo2: here, draw a random number, and with a probability equal to that defined in PHUCK_OFF_SANITY_CHECK_SAMPLING, defaulting to 5%, flip retrieve_from_handler to 1
+        retrieve_from_handler = phuck_off_sanity_check_should_sample();
     }
 
-    int func_id = cached_id;
     if (retrieve_from_handler) {
         func_id = function_id(path, line_no);
 
         if (cached_id == 0) {
-            oa->reserved[phuck_off_offset] = (void*)(intptr_t)func_id;
+            oa->reserved[phuck_off_offset] = (void*) (intptr_t) func_id;
             phuck_off_log(PHUCK_OFF_LOG_LEVEL_TRACE, "Caching: function %s:%d is ID %d", path, line_no, func_id);
+        } else if (cached_id != func_id) {
+            oa->reserved[phuck_off_offset] = (void*) (intptr_t) func_id;
+            phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "Cache error!! function %s:%d is ID %d, but cached is %d",
+                          path, line_no, func_id, cached_id);
         } else {
-            // already cached
-            if (cached_id == func_id) {
-                phuck_off_log(PHUCK_OFF_LOG_LEVEL_TRACE, "Cache is consistent, function %s:%d is ID %d", path, line_no, func_id);
-            } else {
-                phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "Cache error!! function %s:%d is ID %d, but cached is %d",
-                              path, line_no, func_id, cached_id);
-            }
+            phuck_off_log(PHUCK_OFF_LOG_LEVEL_TRACE, "Cache is consistent, function %s:%d is ID %d", path, line_no, func_id);
         }
     } else {
         phuck_off_log(PHUCK_OFF_LOG_LEVEL_TRACE, "Already cached: function %s:%d is ID %d", path, line_no, func_id);
     }
 
-    if (func_id != -1) {
-        phuck_off_mmap_set(func_id);
+    if (func_id > 0) {
+        phuck_off_mmap_set(func_id - 1);
     }
 }
 
@@ -112,14 +116,12 @@ static int function_id(const char* path, const int line_no) {
     return (int) (uintptr_t) line_entry;
 }
 
-static void shutdown_handler(void);
-
 static void init_handler(void) {
     char error[512];
 
     shutdown_handler();
 
-    if (!phuck_off_parse_funcs_file(PHUCK_OFF_FUNCS_PATH, &handler.files, &handler.user_code_root, error, sizeof(error))) {
+    if (!phuck_off_parse_funcs_file(PHUCK_OFF_FUNCS_PATH, &handler.files, &handler.user_code_root, &handler.function_count, error, sizeof(error))) {
         phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "Failed to initialize handler from %s: %s", PHUCK_OFF_FUNCS_PATH, error);
         handler.initialized = 0;
         return;
@@ -139,13 +141,18 @@ static void shutdown_handler(void) {
         handler.user_code_root = NULL;
     }
     handler.user_code_root_len = 0;
+    handler.function_count = 0;
     handler.initialized = 0;
 }
 
 
 void phuck_off_init(void) {
     phuck_off_logger_init();
+    phuck_off_sanity_check_init();
     init_handler();
+    if (handler.initialized && !phuck_off_mmap_init_for_pid((int) handler.function_count)) {
+        shutdown_handler();
+    }
 }
 
 void phuck_off_post_request(void) {
@@ -153,6 +160,7 @@ void phuck_off_post_request(void) {
 }
 
 void phuck_off_shutdown(void) {
+    phuck_off_mmap_shutdown();
     shutdown_handler();
     phuck_off_logger_shutdown();
 }

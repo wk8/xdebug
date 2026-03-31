@@ -38,6 +38,7 @@ int main(void) {
     xdebug_hash* main_lines = NULL;
     void* value = NULL;
     char* user_code_root = NULL;
+    size_t function_count = 0;
     char error[512];
 
     fd = mkstemp(path_template);
@@ -58,12 +59,13 @@ int main(void) {
     fclose(fp);
 
     assert_true(
-        phuck_off_parse_funcs_file(path_template, &files, &user_code_root, error, sizeof(error)),
+        phuck_off_parse_funcs_file(path_template, &files, &user_code_root, &function_count, error, sizeof(error)),
         error
     );
 
     if (files && user_code_root) {
         assert_true(strcmp(user_code_root, "/tmp/user/code") == 0, "unexpected user_code_root");
+        assert_true(function_count == 18, "unexpected parsed function count");
         assert_true(files->size == 2049, "unexpected outer hash size");
         assert_true(files->slots == 1025, "outer hash did not resize as expected");
 

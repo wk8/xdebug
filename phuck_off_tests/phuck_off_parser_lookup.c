@@ -17,6 +17,7 @@ typedef struct {
     const char* name;
     const char* fixture_path;
     const char* expected_root;
+    size_t expected_function_count;
     positive_case positive_cases[20];
     size_t positive_case_count;
     const char* ignored_path;
@@ -30,6 +31,7 @@ static const fixture_case fixture_cases[] = {
         "api",
         "/Users/wk/pushpress/xdebug/phuck_off_tests/fixtures/api.txt",
         "/Users/wk/pushpress/pps-clean/api",
+        2675,
         {
             {"/Users/wk/pushpress/pps-clean/api/v1/app/library/micro/messages/Auth.php", 40, 1},
             {"/Users/wk/pushpress/pps-clean/api/v1/app/library/application/Micro.php", 207, 190},
@@ -62,6 +64,7 @@ static const fixture_case fixture_cases[] = {
         "control-panel",
         "/Users/wk/pushpress/xdebug/phuck_off_tests/fixtures/control-panel.txt",
         "/Users/wk/pushpress/pps-clean/control-panel-legacy",
+        2696,
         {
             {"/Users/wk/pushpress/pps-clean/control-panel-legacy/writeable/UploadHandler.php", 42, 1},
             {"/Users/wk/pushpress/pps-clean/control-panel-legacy/writeable/UploadHandler.php", 477, 20},
@@ -237,7 +240,7 @@ static int init_handler_from_file(const char* path) {
 
     shutdown_handler();
 
-    if (!phuck_off_parse_funcs_file(path, &handler.files, &handler.user_code_root, error, sizeof(error))) {
+    if (!phuck_off_parse_funcs_file(path, &handler.files, &handler.user_code_root, &handler.function_count, error, sizeof(error))) {
         fprintf(stderr, "failed to initialize handler from %s: %s\n", path, error);
         failures = 1;
         handler.initialized = 0;
@@ -288,6 +291,8 @@ static void run_fixture_case(const fixture_case* fixture) {
     assert_true(handler.files != NULL, message);
     snprintf(message, sizeof(message), "unexpected user_code_root for %s", fixture->name);
     assert_true(strcmp(handler.user_code_root, fixture->expected_root) == 0, message);
+    snprintf(message, sizeof(message), "unexpected function_count for %s", fixture->name);
+    assert_true(handler.function_count == fixture->expected_function_count, message);
 
     for (i = 0; i < fixture->positive_case_count; i++) {
         assert_expected_function_id(

@@ -1,0 +1,15 @@
+#ifndef __HAVE_PHUCK_OFF_SANITY_CHECK_H__
+#define __HAVE_PHUCK_OFF_SANITY_CHECK_H__
+
+#ifndef PHUCK_OFF_DEFAULT_SANITY_CHECK_SAMPLING
+#define PHUCK_OFF_DEFAULT_SANITY_CHECK_SAMPLING 5
+#endif
+
+#ifndef PHUCK_OFF_SANITY_CHECK_SAMPLING_ENV_VAR
+#define PHUCK_OFF_SANITY_CHECK_SAMPLING_ENV_VAR "PHUCK_OFF_SANITY_CHECK_SAMPLING"
+#endif
+
+void phuck_off_sanity_check_init(void);
+int phuck_off_sanity_check_should_sample(void);
+
+#endif

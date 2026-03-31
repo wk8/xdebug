@@ -240,6 +240,7 @@ int phuck_off_parse_funcs_file(
     const char* path,
     xdebug_hash** files_out,
     char** user_code_root_out,
+    size_t* function_count_out,
     char* error,
     size_t error_len
 ) {
@@ -261,6 +262,9 @@ int phuck_off_parse_funcs_file(
     }
     if (user_code_root_out) {
         *user_code_root_out = NULL;
+    }
+    if (function_count_out) {
+        *function_count_out = 0;
     }
     if (error && error_len > 0) {
         error[0] = '\0';
@@ -297,6 +301,8 @@ int phuck_off_parse_funcs_file(
                 fclose(fp);
                 xdebug_hash_destroy(files);
                 return 0;
+            } else if (function_count_out) {
+                (*function_count_out)++;
             }
         } else if (state == PHUCK_OFF_PARSE_ROOT) {
             if (line[0] == '\0') {

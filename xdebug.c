@@ -2923,6 +2923,7 @@ ZEND_DLEXPORT void xdebug_init_oparray(zend_op_array *op_array)
 {
 	TSRMLS_FETCH();
 	op_array->reserved[XG(dead_code_analysis_tracker_offset)] = 0;
+	op_array->reserved[XG(phuck_off_tracker_offset)] = 0;
 }
 
 #ifndef ZEND_EXT_API

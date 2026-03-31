@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
@@ -13,6 +14,7 @@
 #include "phuck_off_mmap.h"
 
 #define PHUCK_OFF_MMAP_FLUSH_INTERVAL_SECONDS 3
+#define PHUCK_OFF_MMAP_PATH_TEMPLATE "/tmp/phuck_off_map_%ld"
 
 typedef struct phuck_off_mmap {
     int fd;
@@ -29,6 +31,28 @@ static size_t phuck_off_mmap_byte_count(const int n) {
     return (((size_t) n) + 7u) >> 3;
 }
 
+static void phuck_off_mmap_log_init_error(const char* path, const int n, const char* reason) {
+    phuck_off_log(
+        PHUCK_OFF_LOG_LEVEL_ERROR,
+        "Failed to initialize phuck-off mmap path=\"%s\" functions=%d: %s",
+        path ? path : "(null)",
+        n,
+        reason
+    );
+}
+
+static void phuck_off_mmap_log_init_errno_error(const char* path, const int n, const char* operation, const int saved_errno) {
+    phuck_off_log(
+        PHUCK_OFF_LOG_LEVEL_ERROR,
+        "Failed to initialize phuck-off mmap path=\"%s\" functions=%d: %s: %s (%d)",
+        path,
+        n,
+        operation,
+        strerror(saved_errno),
+        saved_errno
+    );
+}
+
 static char* phuck_off_mmap_strdup(const char* path) {
     size_t len;
     char* copy;
@@ -43,14 +67,33 @@ static char* phuck_off_mmap_strdup(const char* path) {
     return copy;
 }
 
+int phuck_off_mmap_init_for_pid(const int n) {
+    char path[64];
+    const int written = snprintf(path, sizeof(path), PHUCK_OFF_MMAP_PATH_TEMPLATE, (long) getpid());
+
+    if (written <= 0 || (size_t) written >= sizeof(path)) {
+        phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "Failed to build phuck-off mmap path for pid %ld", (long) getpid());
+        return 0;
+    }
+
+    return phuck_off_mmap_init(path, n);
+}
+
 int phuck_off_mmap_init(const char* path, const int n) {
     size_t byte_count;
     void* mapping;
     int fd;
     char* path_copy;
     time_t now;
+    int saved_errno;
 
-    if (!path || path[0] == '\0' || n <= 0) {
+    if (!path || path[0] == '\0') {
+        phuck_off_mmap_log_init_error(path, n, "invalid path");
+        return 0;
+    }
+
+    if (n <= 0) {
+        phuck_off_mmap_log_init_error(path, n, "invalid function count");
         return 0;
     }
 
@@ -59,27 +102,34 @@ int phuck_off_mmap_init(const char* path, const int n) {
     byte_count = phuck_off_mmap_byte_count(n);
     path_copy = phuck_off_mmap_strdup(path);
     if (!path_copy) {
+        phuck_off_mmap_log_init_error(path, n, "memory allocation failed");
         return 0;
     }
 
     fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0600);
     if (fd < 0) {
+        saved_errno = errno;
         free(path_copy);
+        phuck_off_mmap_log_init_errno_error(path, n, "open() failed", saved_errno);
         return 0;
     }
 
     if (ftruncate(fd, (off_t) byte_count) != 0) {
+        saved_errno = errno;
         close(fd);
         unlink(path);
         free(path_copy);
+        phuck_off_mmap_log_init_errno_error(path, n, "ftruncate() failed", saved_errno);
         return 0;
     }
 
     mapping = mmap(NULL, byte_count, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (mapping == MAP_FAILED) {
+        saved_errno = errno;
         close(fd);
         unlink(path);
         free(path_copy);
+        phuck_off_mmap_log_init_errno_error(path, n, "mmap() failed", saved_errno);
         return 0;
     }
 
@@ -89,6 +139,17 @@ int phuck_off_mmap_init(const char* path, const int n) {
     now = time(NULL);
     phuck_off_mmap_state.last_flush_at = now == (time_t) -1 ? 0 : now;
     phuck_off_mmap_bytes = (unsigned char*) mapping;
+    if (now == (time_t) -1) {
+        saved_errno = errno;
+        phuck_off_log(
+            PHUCK_OFF_LOG_LEVEL_ERROR,
+            "time() failed during phuck-off mmap init for \"%s\": %s (%d)",
+            path,
+            strerror(saved_errno),
+            saved_errno
+        );
+    }
+    phuck_off_log(PHUCK_OFF_LOG_LEVEL_INFO, "Initialized phuck-off mmap path=\"%s\" functions=%d", path, n);
 
     return 1;
 }

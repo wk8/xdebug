@@ -17,6 +17,7 @@ int phuck_off_parse_funcs_file(
     const char* path,
     xdebug_hash** files_out,
     char** user_code_root_out,
+    size_t* function_count_out,
     char* error,
     size_t error_len
 );
