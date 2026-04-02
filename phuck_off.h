@@ -9,6 +9,9 @@
 void phuck_off_init(void);
 void phuck_off_shutdown(void);
 
+// meant for RINIT
+void phuck_off_request_init(void);
+
 // meant for RSHUTDOWN
 void phuck_off_post_request(void);
 

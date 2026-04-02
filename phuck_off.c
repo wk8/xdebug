@@ -100,9 +100,14 @@ void phuck_off_init(void) {
     phuck_off_logger_init();
     phuck_off_sanity_check_init();
     init_handler();
-    if (handler.initialized && !phuck_off_mmap_init_for_pid((int) handler.function_count)) {
-        shutdown_handler();
+}
+
+void phuck_off_request_init(void) {
+    if (!handler.initialized) {
+        return;
     }
+
+    phuck_off_mmap_init_for_pid((int) handler.function_count);
 }
 
 void phuck_off_post_request(void) {
@@ -164,7 +169,7 @@ void phuck_off_process_stackframe(zend_execute_data* zdata) {
         phuck_off_log(PHUCK_OFF_LOG_LEVEL_TRACE, "Already cached: function %s:%d is ID %d", path, line_no, func_id);
     }
 
-    if (func_id > 0) {
+    if (func_id > 0 && phuck_off_mmap_bytes != NULL) {
         phuck_off_mmap_set(func_id - 1);
     }
 }

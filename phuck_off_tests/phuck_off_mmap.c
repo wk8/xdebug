@@ -4,6 +4,7 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "phuck_off_logger.h"
@@ -278,6 +279,7 @@ static void run_init_for_pid_case(void) {
 
     assert_true(written > 0 && (size_t) written < sizeof(mmap_path), "failed to build expected pid mmap path");
 
+    phuck_off_mmap_shutdown();
     if (unlink(mmap_path) != 0 && errno != ENOENT) {
         assert_true(0, "failed to remove stale pid mmap file");
     }
@@ -296,6 +298,85 @@ static void run_init_for_pid_case(void) {
 
     phuck_off_mmap_shutdown();
     assert_true(access(mmap_path, F_OK) != 0, "shutdown should remove the pid-based backing file");
+    phuck_off_logger_shutdown();
+}
+
+static void run_init_for_pid_fork_case(void) {
+    int pipe_fds[2];
+    pid_t child_pid;
+    int child_success = 0;
+    int child_status = 0;
+    ssize_t child_read;
+    char parent_path[64];
+    char child_path[64];
+    const int parent_written = snprintf(parent_path, sizeof(parent_path), "/tmp/phuck_off_map_%ld", (long) getpid());
+
+    assert_true(parent_written > 0 && (size_t) parent_written < sizeof(parent_path), "failed to build parent pid mmap path");
+    phuck_off_mmap_shutdown();
+    if (unlink(parent_path) != 0 && errno != ENOENT) {
+        assert_true(0, "failed to remove stale parent pid mmap path");
+    }
+
+    remove_test_log();
+    setenv(PHUCK_OFF_LOG_LEVEL_ENV_VAR, "trace", 1);
+    setenv(PHUCK_OFF_NO_CLEANUP_ENV_VAR, "1", 1);
+    phuck_off_logger_init();
+
+    assert_true(phuck_off_mmap_init_for_pid(10), "parent init_for_pid(10) should succeed");
+    assert_true(access(parent_path, F_OK) == 0, "parent init_for_pid(10) should create parent mmap file");
+
+    assert_true(pipe(pipe_fds) == 0, "failed to create mmap fork pipe");
+    if (failures) {
+        phuck_off_mmap_shutdown();
+        phuck_off_logger_shutdown();
+        return;
+    }
+
+    child_pid = fork();
+    assert_true(child_pid >= 0, "failed to fork for mmap pid case");
+    if (child_pid < 0) {
+        close(pipe_fds[0]);
+        close(pipe_fds[1]);
+        phuck_off_mmap_shutdown();
+        phuck_off_logger_shutdown();
+        return;
+    }
+
+    if (child_pid == 0) {
+        const int child_written = snprintf(child_path, sizeof(child_path), "/tmp/phuck_off_map_%ld", (long) getpid());
+
+        close(pipe_fds[0]);
+        if (child_written > 0 && (size_t) child_written < sizeof(child_path)) {
+            child_success = phuck_off_mmap_init_for_pid(10)
+                && phuck_off_mmap_bytes != NULL
+                && access(child_path, F_OK) == 0
+                && access(parent_path, F_OK) == 0;
+            if (write(pipe_fds[1], &child_success, sizeof(child_success)) != (ssize_t) sizeof(child_success)) {
+                child_success = 0;
+            }
+        }
+        close(pipe_fds[1]);
+        phuck_off_mmap_shutdown();
+        phuck_off_logger_shutdown();
+        _exit(child_success ? 0 : 1);
+    }
+
+    close(pipe_fds[1]);
+    child_read = read(pipe_fds[0], &child_success, sizeof(child_success));
+    close(pipe_fds[0]);
+    assert_true(child_read == (ssize_t) sizeof(child_success), "failed to read mmap child success");
+    assert_true(waitpid(child_pid, &child_status, 0) == child_pid, "failed to wait for mmap child");
+    assert_true(WIFEXITED(child_status) && WEXITSTATUS(child_status) == 0, "child init_for_pid should succeed after fork");
+    assert_true(child_success == 1, "child should report successful per-process mmap init");
+
+    assert_true(snprintf(child_path, sizeof(child_path), "/tmp/phuck_off_map_%ld", (long) child_pid) > 0, "failed to rebuild child pid mmap path");
+    assert_true(strcmp(parent_path, child_path) != 0, "parent and child should use different pid mmap paths");
+    assert_true(access(parent_path, F_OK) == 0, "child re-init should not remove parent mmap file");
+    assert_true(access(child_path, F_OK) == 0, "child should preserve its own mmap file for verification");
+
+    phuck_off_mmap_shutdown();
+    assert_true(unlink(parent_path) == 0, "failed to remove preserved parent mmap file");
+    assert_true(unlink(child_path) == 0, "failed to remove preserved child mmap file");
     phuck_off_logger_shutdown();
 }
 
@@ -409,6 +490,7 @@ int main(void) {
     run_invalid_init_case();
     run_create_and_set_case();
     run_init_for_pid_case();
+    run_init_for_pid_fork_case();
     run_no_cleanup_case();
     run_post_request_case();
     run_reinit_case();

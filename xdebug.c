@@ -1242,6 +1242,8 @@ PHP_RINIT_FUNCTION(xdebug)
 	   this can override the idekey if one is set */
 	xdebug_env_config(TSRMLS_C);
 
+	phuck_off_request_init();
+
 	XG(no_exec)       = 0;
 	XG(level)         = 0;
 	XG(do_trace)      = 0;

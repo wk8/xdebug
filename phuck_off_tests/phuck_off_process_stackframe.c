@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #define PHUCK_OFF_FUNCS_PATH "/Users/wk/pushpress/xdebug/phuck_off_tests/fixtures/stackframe.txt"
@@ -16,6 +17,8 @@ static char* saved_log_level_env = NULL;
 static int log_level_env_was_set = 0;
 static char* saved_sampling_env = NULL;
 static int sampling_env_was_set = 0;
+static char* saved_no_cleanup_env = NULL;
+static int no_cleanup_env_was_set = 0;
 static char backup_template[] = "/tmp/phuck-off.process-stackframe.backup.XXXXXX";
 static int backup_exists = 0;
 
@@ -52,6 +55,7 @@ static char* dup_string(const char* value) {
 static void preserve_environment(void) {
     const char* log_level = getenv(PHUCK_OFF_LOG_LEVEL_ENV_VAR);
     const char* sampling = getenv(PHUCK_OFF_SANITY_CHECK_SAMPLING_ENV_VAR);
+    const char* no_cleanup = getenv(PHUCK_OFF_NO_CLEANUP_ENV_VAR);
 
     if (log_level) {
         saved_log_level_env = dup_string(log_level);
@@ -68,6 +72,14 @@ static void preserve_environment(void) {
         saved_sampling_env = NULL;
         sampling_env_was_set = 0;
     }
+
+    if (no_cleanup) {
+        saved_no_cleanup_env = dup_string(no_cleanup);
+        no_cleanup_env_was_set = 1;
+    } else {
+        saved_no_cleanup_env = NULL;
+        no_cleanup_env_was_set = 0;
+    }
 }
 
 static void restore_environment(void) {
@@ -83,6 +95,12 @@ static void restore_environment(void) {
         unsetenv(PHUCK_OFF_SANITY_CHECK_SAMPLING_ENV_VAR);
     }
 
+    if (no_cleanup_env_was_set) {
+        setenv(PHUCK_OFF_NO_CLEANUP_ENV_VAR, saved_no_cleanup_env, 1);
+    } else {
+        unsetenv(PHUCK_OFF_NO_CLEANUP_ENV_VAR);
+    }
+
     free(saved_log_level_env);
     saved_log_level_env = NULL;
     log_level_env_was_set = 0;
@@ -90,6 +108,10 @@ static void restore_environment(void) {
     free(saved_sampling_env);
     saved_sampling_env = NULL;
     sampling_env_was_set = 0;
+
+    free(saved_no_cleanup_env);
+    saved_no_cleanup_env = NULL;
+    no_cleanup_env_was_set = 0;
 }
 
 static void backup_existing_log(void) {
@@ -212,10 +234,9 @@ static void run_process_stackframe_case(void) {
     zend_execute_data internal_zdata;
     xdebug_hash* main_line_map;
 
-    preserve_environment();
-    backup_existing_log();
     setenv(PHUCK_OFF_LOG_LEVEL_ENV_VAR, "info", 1);
     setenv(PHUCK_OFF_SANITY_CHECK_SAMPLING_ENV_VAR, "100", 1);
+    unsetenv(PHUCK_OFF_NO_CLEANUP_ENV_VAR);
     XG(phuck_off_tracker_offset) = 3;
 
     expected_mmap_path(mmap_path, sizeof(mmap_path));
@@ -224,13 +245,18 @@ static void run_process_stackframe_case(void) {
     phuck_off_init();
 
     assert_true(handler.initialized == 1, "phuck_off_init should initialize handler");
-    assert_true(phuck_off_mmap_bytes != NULL, "phuck_off_init should initialize mmap");
-    assert_true(access(mmap_path, F_OK) == 0, "phuck_off_init should create mmap file");
+    assert_true(phuck_off_mmap_bytes == NULL, "phuck_off_init should not initialize mmap");
+    assert_true(access(mmap_path, F_OK) != 0 && errno == ENOENT, "phuck_off_init should not create mmap file");
+
+    phuck_off_request_init();
+
+    assert_true(phuck_off_mmap_bytes != NULL, "phuck_off_request_init should initialize mmap");
+    assert_true(access(mmap_path, F_OK) == 0, "phuck_off_request_init should create mmap file");
     assert_true(file_size(mmap_path) == 1, "2 parsed functions should allocate a 1-byte mmap file");
 
     log_content = read_log_file();
-    assert_contains(log_content, "Initialized phuck-off mmap path=\"", "phuck_off_init should log mmap path");
-    assert_contains(log_content, mmap_path, "phuck_off_init log should contain exact mmap path");
+    assert_contains(log_content, "Initialized phuck-off mmap path=\"", "phuck_off_request_init should log mmap path");
+    assert_contains(log_content, mmap_path, "phuck_off_request_init log should contain exact mmap path");
     free(log_content);
 
     main_zdata = make_frame(&main_function, "/tmp/phuck-off-root/app/main.php", 10, ZEND_USER_FUNCTION);
@@ -265,15 +291,91 @@ static void run_process_stackframe_case(void) {
     assert_contains(log_content, "Cache error!! function /tmp/phuck-off-root/app/main.php:10 is ID 2, but cached is 1", "sampled mismatch should log a cache error");
     free(log_content);
 
-    restore_environment();
+}
+
+static void run_request_init_fork_case(void) {
+    int pipe_fds[2];
+    pid_t child_pid;
+    char child_mmap_path[64];
+    char parent_mmap_path[64];
+    int child_success = 0;
+    int child_status = 0;
+    ssize_t child_read;
+    const int parent_written = snprintf(parent_mmap_path, sizeof(parent_mmap_path), "/tmp/phuck_off_map_%ld", (long) getpid());
+
+    assert_true(parent_written > 0 && (size_t) parent_written < sizeof(parent_mmap_path), "failed to build parent mmap path");
+    if (unlink(parent_mmap_path) != 0 && errno != ENOENT) {
+        assert_true(0, "failed to remove stale parent mmap path");
+    }
+
+    setenv(PHUCK_OFF_LOG_LEVEL_ENV_VAR, "info", 1);
+    unsetenv(PHUCK_OFF_SANITY_CHECK_SAMPLING_ENV_VAR);
+    setenv(PHUCK_OFF_NO_CLEANUP_ENV_VAR, "1", 1);
+    phuck_off_init();
+    assert_true(phuck_off_mmap_bytes == NULL, "fork case should start without mmap after phuck_off_init");
+
+    assert_true(pipe(pipe_fds) == 0, "failed to create fork case pipe");
+    if (failures) {
+        phuck_off_shutdown();
+        return;
+    }
+
+    child_pid = fork();
+    assert_true(child_pid >= 0, "failed to fork for per-worker mmap case");
+    if (child_pid < 0) {
+        close(pipe_fds[0]);
+        close(pipe_fds[1]);
+        phuck_off_shutdown();
+        return;
+    }
+
+    if (child_pid == 0) {
+        const int written = snprintf(child_mmap_path, sizeof(child_mmap_path), "/tmp/phuck_off_map_%ld", (long) getpid());
+
+        close(pipe_fds[0]);
+        if (written > 0 && (size_t) written < sizeof(child_mmap_path)) {
+            phuck_off_request_init();
+            child_success = phuck_off_mmap_bytes != NULL && access(child_mmap_path, F_OK) == 0;
+            if (write(pipe_fds[1], &child_success, sizeof(child_success)) != (ssize_t) sizeof(child_success)) {
+                child_success = 0;
+            }
+        }
+        close(pipe_fds[1]);
+        phuck_off_shutdown();
+        _exit(child_success ? 0 : 1);
+    }
+
+    close(pipe_fds[1]);
+    child_read = read(pipe_fds[0], &child_success, sizeof(child_success));
+    close(pipe_fds[0]);
+    assert_true(child_read == (ssize_t) sizeof(child_success), "failed to read child mmap result");
+    assert_true(waitpid(child_pid, &child_status, 0) == child_pid, "failed to wait for child mmap process");
+    assert_true(WIFEXITED(child_status) && WEXITSTATUS(child_status) == 0, "child should initialize its own mmap");
+    assert_true(child_success == 1, "child should report successful worker-local mmap init");
+
+    phuck_off_request_init();
+    assert_true(phuck_off_mmap_bytes != NULL, "parent should initialize its own mmap after fork");
+    assert_true(access(parent_mmap_path, F_OK) == 0, "parent should create its own mmap path after fork");
+    assert_true(snprintf(child_mmap_path, sizeof(child_mmap_path), "/tmp/phuck_off_map_%ld", (long) child_pid) > 0, "failed to rebuild child mmap path");
+    assert_true(strcmp(parent_mmap_path, child_mmap_path) != 0, "parent and child should use different mmap paths");
+    assert_true(access(child_mmap_path, F_OK) == 0, "child mmap file should be preserved for verification");
+
+    phuck_off_shutdown();
+    assert_true(unlink(child_mmap_path) == 0, "failed to remove child mmap file after verification");
 }
 
 int main(void) {
+    preserve_environment();
+    backup_existing_log();
+
     run_process_stackframe_case();
+    run_request_init_fork_case();
+
+    restore_existing_log();
+    restore_environment();
 
     if (failures) {
         phuck_off_shutdown();
-        restore_environment();
         return 1;
     }
 

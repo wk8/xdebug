@@ -1,6 +1,8 @@
 #ifndef __HAVE_PHUCK_OFF_MMAP_H__
 #define __HAVE_PHUCK_OFF_MMAP_H__
 
+#include <sys/types.h>
+
 #ifndef PHUCK_OFF_NO_CLEANUP_ENV_VAR
 #define PHUCK_OFF_NO_CLEANUP_ENV_VAR "PHUCK_OFF_NO_CLEANUP"
 #endif
