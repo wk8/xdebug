@@ -19,6 +19,6 @@ void phuck_off_request_init(void);
 // meant for RSHUTDOWN
 void phuck_off_post_request(void);
 
-void phuck_off_process_stackframe(zend_execute_data* zdata);
+void phuck_off_process_stackframe(zend_execute_data* zdata, zend_op_array* op_array);
 
 #endif

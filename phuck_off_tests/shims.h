@@ -15,15 +15,25 @@ typedef struct _xdebug_func {
     int   internal;
 } xdebug_func;
 
+typedef struct _zend_function_common {
+    int type;
+    const char* function_name;
+    void* scope;
+} zend_function_common;
+
 typedef struct _zend_op_array {
+    int type;
+    const char* function_name;
+    void* scope;
     const char* filename;
     int line_start;
     int line_end;
     void* reserved[8];
 } zend_op_array;
 
-typedef struct _zend_function {
+typedef union _zend_function {
     int type;
+    zend_function_common common;
     zend_op_array op_array;
 } zend_function;
 

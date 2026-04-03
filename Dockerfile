@@ -31,4 +31,4 @@ COPY --from=func-finder /tmp/funcs.txt /etc/funcs.txt
 
 # then
 # phpize && ./configure --enable-xdebug --with-php-config=$(which php-config) && make -j 4 && make install && echo 'done'
-# php -dzend_extension="$(php-config --extension-dir)/xdebug.so" po.php
+# PHUCK_OFF_ENABLED=1 php -dzend_extension="$(php-config --extension-dir)/xdebug.so" po.php
