@@ -53,7 +53,7 @@ static int function_id(const char* path, const int line_no) {
     void* file_entry;
     if (!xdebug_hash_find(handler.files, (char*) path, (unsigned int) path_len, &file_entry)) {
         // we found a file that the dumper missed
-        phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "No function map entry for path \"%s\"", path);
+        phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "No function map entry for path \"%s\":%d", path, line_no);
         return -1;
     }
 
@@ -142,8 +142,8 @@ void phuck_off_shutdown(void) {
 // we set the mmap bit for that function to 1
 // the added subtlety is that we also cache the function ID in the zen struct for it, to avoid
 // repeated hash table lookups
-void phuck_off_process_stackframe(zend_execute_data* zdata) {
-    if (!zdata || !handler.initialized) {
+void phuck_off_process_stackframe(zend_execute_data* zdata, zend_op_array* op_array) {
+    if (!zdata || !op_array || !handler.initialized) {
         return;
     }
 
@@ -152,19 +152,20 @@ void phuck_off_process_stackframe(zend_execute_data* zdata) {
         return;
     }
 
-    zend_op_array* oa = &func->op_array;
-    const char* path = oa->filename;
+    const char* path = op_array->filename;
     if (!path) {
         return;
     }
 
     const int phuck_off_offset = XG(phuck_off_tracker_offset);
-    const int line_no = oa->line_start;
-    const int cached_id = (int) (intptr_t) oa->reserved[phuck_off_offset];
+    const int line_no = op_array->line_start;
+    const int cached_id = (int) (intptr_t) op_array->reserved[phuck_off_offset];
     int retrieve_from_handler = cached_id == 0 ? 1 : 0;
     int func_id = cached_id;
 
-    phuck_off_log(PHUCK_OFF_LOG_LEVEL_TRACE, "Frame calling user function %s:%d", path, line_no);
+    const char* function_name = func->common.function_name ? func->common.function_name : "{main}";
+    phuck_off_log(PHUCK_OFF_LOG_LEVEL_TRACE, "Frame calling user function %s at %s:%d", function_name, path, line_no);
+
     if (!retrieve_from_handler) {
         retrieve_from_handler = phuck_off_sanity_check_should_sample();
     }
@@ -173,10 +174,10 @@ void phuck_off_process_stackframe(zend_execute_data* zdata) {
         func_id = function_id(path, line_no);
 
         if (cached_id == 0) {
-            oa->reserved[phuck_off_offset] = (void*) (intptr_t) func_id;
+            op_array->reserved[phuck_off_offset] = (void*) (intptr_t) func_id;
             phuck_off_log(PHUCK_OFF_LOG_LEVEL_TRACE, "Caching: function %s:%d is ID %d", path, line_no, func_id);
         } else if (cached_id != func_id) {
-            oa->reserved[phuck_off_offset] = (void*) (intptr_t) func_id;
+            op_array->reserved[phuck_off_offset] = (void*) (intptr_t) func_id;
             phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "Cache error!! function %s:%d is ID %d, but cached is %d",
                           path, line_no, func_id, cached_id);
         } else {

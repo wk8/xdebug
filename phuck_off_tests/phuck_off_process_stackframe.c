@@ -35,6 +35,10 @@ static void assert_contains(const char* haystack, const char* needle, const char
     assert_true(haystack != NULL && strstr(haystack, needle) != NULL, message);
 }
 
+static void assert_not_contains(const char* haystack, const char* needle, const char* message) {
+    assert_true(haystack == NULL || strstr(haystack, needle) == NULL, message);
+}
+
 static char* dup_string(const char* value) {
     size_t len;
     char* copy;
@@ -220,17 +224,28 @@ static void expected_mmap_path(char* buffer, size_t buffer_len) {
     assert_true(written > 0 && (size_t) written < buffer_len, "failed to build expected mmap path");
 }
 
-static zend_execute_data make_frame(zend_function* function, const char* path, int line_no, int type) {
+static zend_execute_data make_frame(zend_function* function, const char* function_name, const char* path, int line_no, int type) {
     zend_execute_data zdata;
 
     memset(&zdata, 0, sizeof(zdata));
     memset(function, 0, sizeof(*function));
     function->type = type;
+    function->common.function_name = function_name;
     function->op_array.filename = path;
     function->op_array.line_start = line_no;
     zdata.function_state.function = function;
 
     return zdata;
+}
+
+static zend_op_array make_op_array(const char* path, int line_no) {
+    zend_op_array op_array;
+
+    memset(&op_array, 0, sizeof(op_array));
+    op_array.filename = path;
+    op_array.line_start = line_no;
+
+    return op_array;
 }
 
 static xdebug_hash* line_map_for(const char* path) {
@@ -249,13 +264,16 @@ static void run_process_stackframe_case(void) {
     char* log_content;
     zend_function main_function;
     zend_execute_data main_zdata;
+    zend_op_array main_op_array;
     zend_function missing_function;
     zend_execute_data missing_zdata;
+    zend_op_array missing_op_array;
     zend_function internal_function;
     zend_execute_data internal_zdata;
+    zend_op_array internal_op_array;
     xdebug_hash* main_line_map;
 
-    setenv(PHUCK_OFF_LOG_LEVEL_ENV_VAR, "info", 1);
+    setenv(PHUCK_OFF_LOG_LEVEL_ENV_VAR, "trace", 1);
     setenv(PHUCK_OFF_SANITY_CHECK_SAMPLING_ENV_VAR, "100", 1);
     unsetenv(PHUCK_OFF_NO_CLEANUP_ENV_VAR);
     setenv(PHUCK_OFF_ENABLED_ENV_VAR, "1", 1);
@@ -281,9 +299,11 @@ static void run_process_stackframe_case(void) {
     assert_contains(log_content, mmap_path, "phuck_off_request_init log should contain exact mmap path");
     free(log_content);
 
-    main_zdata = make_frame(&main_function, "/tmp/phuck-off-root/app/main.php", 10, ZEND_USER_FUNCTION);
-    phuck_off_process_stackframe(&main_zdata);
-    assert_true((intptr_t) main_function.op_array.reserved[3] == 1, "main.php:10 should cache function id 1");
+    main_zdata = make_frame(&main_function, "main", "/tmp/phuck-off-root/app/main.php", 340433536, ZEND_USER_FUNCTION);
+    main_op_array = make_op_array("/tmp/phuck-off-root/app/main.php", 10);
+    phuck_off_process_stackframe(&main_zdata, &main_op_array);
+    assert_true((intptr_t) main_op_array.reserved[3] == 1, "main.php:10 should cache function id 1 on the canonical op_array");
+    assert_true(main_function.op_array.reserved[3] == NULL, "function_state.function op_array should not be used for caching");
     assert_true(phuck_off_mmap_bytes[0] == 0x01, "function id 1 should set mmap bit 0");
 
     main_line_map = line_map_for("/tmp/phuck-off-root/app/main.php");
@@ -292,17 +312,20 @@ static void run_process_stackframe_case(void) {
         "failed to update stackframe fixture line map"
     );
 
-    phuck_off_process_stackframe(&main_zdata);
-    assert_true((intptr_t) main_function.op_array.reserved[3] == 2, "sampled cache mismatch should update cached function id");
+    phuck_off_process_stackframe(&main_zdata, &main_op_array);
+    assert_true((intptr_t) main_op_array.reserved[3] == 2, "sampled cache mismatch should update cached function id");
     assert_true((phuck_off_mmap_bytes[0] & 0x03u) == 0x03u, "sampled cache mismatch should set mmap bit 1");
 
-    missing_zdata = make_frame(&missing_function, "/tmp/phuck-off-root/app/missing.php", 77, ZEND_USER_FUNCTION);
-    phuck_off_process_stackframe(&missing_zdata);
-    assert_true((intptr_t) missing_function.op_array.reserved[3] == -1, "missing function should cache -1");
+    missing_zdata = make_frame(&missing_function, "missing", "/tmp/phuck-off-root/app/missing.php", 77, ZEND_USER_FUNCTION);
+    missing_op_array = make_op_array("/tmp/phuck-off-root/app/missing.php", 77);
+    phuck_off_process_stackframe(&missing_zdata, &missing_op_array);
+    assert_true((intptr_t) missing_op_array.reserved[3] == -1, "missing function should cache -1");
 
-    internal_zdata = make_frame(&internal_function, "/tmp/phuck-off-root/app/other.php", 20, 0);
-    phuck_off_process_stackframe(&internal_zdata);
+    internal_zdata = make_frame(&internal_function, "internal_helper", "/tmp/phuck-off-root/app/other.php", 20, 0);
+    internal_op_array = make_op_array("/tmp/phuck-off-root/app/other.php", 20);
+    phuck_off_process_stackframe(&internal_zdata, &internal_op_array);
     assert_true(internal_function.op_array.reserved[3] == NULL, "internal function should not touch cache");
+    assert_true(internal_op_array.reserved[3] == NULL, "internal function canonical op_array should not be cached");
 
     phuck_off_shutdown();
 
@@ -310,6 +333,8 @@ static void run_process_stackframe_case(void) {
     assert_true(access(mmap_path, F_OK) != 0 && errno == ENOENT, "phuck_off_shutdown should remove mmap file");
 
     log_content = read_log_file();
+    assert_contains(log_content, "Frame calling user function main at /tmp/phuck-off-root/app/main.php:10", "stackframe trace log should use the canonical op_array line and function name");
+    assert_not_contains(log_content, "340433536", "stackframe trace log should not use the function_state.function line_start");
     assert_contains(log_content, "Cache error!! function /tmp/phuck-off-root/app/main.php:10 is ID 2, but cached is 1", "sampled mismatch should log a cache error");
     free(log_content);
 
@@ -391,6 +416,7 @@ static void run_disabled_case(void) {
     char mmap_path[64];
     zend_function function;
     zend_execute_data zdata;
+    zend_op_array op_array;
 
     setenv(PHUCK_OFF_LOG_LEVEL_ENV_VAR, "trace", 1);
     setenv(PHUCK_OFF_SANITY_CHECK_SAMPLING_ENV_VAR, "100", 1);
@@ -406,7 +432,8 @@ static void run_disabled_case(void) {
         assert_true(0, "failed to remove stale disabled-case log");
     }
 
-    zdata = make_frame(&function, "/tmp/phuck-off-root/app/main.php", 10, ZEND_USER_FUNCTION);
+    zdata = make_frame(&function, "main", "/tmp/phuck-off-root/app/main.php", 10, ZEND_USER_FUNCTION);
+    op_array = make_op_array("/tmp/phuck-off-root/app/main.php", 10);
     phuck_off_init();
     assert_true(handler.initialized == 0, "phuck_off_init should skip handler init when disabled");
     assert_true(phuck_off_mmap_bytes == NULL, "disabled phuck_off_init should not initialize mmap");
@@ -419,7 +446,7 @@ static void run_disabled_case(void) {
     phuck_off_post_request();
     assert_true(access(PHUCK_OFF_LOG_FILE, F_OK) != 0, "disabled phuck_off_post_request should not create a log file");
 
-    phuck_off_process_stackframe(&zdata);
+    phuck_off_process_stackframe(&zdata, &op_array);
     assert_true(function.op_array.reserved[3] == NULL, "disabled phuck_off_process_stackframe should not touch cache");
     assert_true(access(PHUCK_OFF_LOG_FILE, F_OK) != 0, "disabled phuck_off_process_stackframe should not create a log file");
     assert_true(access(mmap_path, F_OK) != 0, "disabled phuck_off_process_stackframe should not create mmap file");

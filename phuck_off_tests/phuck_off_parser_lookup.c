@@ -317,7 +317,7 @@ static void run_fixture_case(const fixture_case* fixture) {
 
     snprintf(expected_missing_line, sizeof(expected_missing_line), "No function id entry for \"%s\":999999", first_positive->path);
     snprintf(expected_line_zero, sizeof(expected_line_zero), "No function id entry for \"%s\":0", first_positive->path);
-    snprintf(expected_missing_file, sizeof(expected_missing_file), "No function map entry for path \"%s\"", fixture->missing_in_root_path);
+    snprintf(expected_missing_file, sizeof(expected_missing_file), "No function map entry for path \"%s\":1", fixture->missing_in_root_path);
 
     snprintf(message, sizeof(message), "missing-line error log missing for %s", fixture->name);
     assert_contains(log_content, expected_missing_line, message);
