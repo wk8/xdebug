@@ -7,6 +7,7 @@
 #include "phuck_off.c"
 
 static int failures = 0;
+static const char* test_function_name = "test_function";
 
 static void destroy_file_entry(void* value) {
     if (value) {
@@ -105,15 +106,15 @@ static void run_user_root_case(void) {
         "failed to add ignored file entry"
     );
 
-    assert_true(function_id(main_path, 10) == 17, "wrong function id for main.php:10");
-    assert_true(function_id(main_path, 20) == 31, "wrong cached function id for main.php:20");
-    assert_true(function_id(main_path, 11) == -1, "missing line should return -1");
-    assert_true(function_id(ignored_path, 50) == -1, "ignored file should return -1");
-    assert_true(function_id(ignored_path, 51) == -1, "cached ignored file should return -1");
-    assert_true(function_id("/tmp/user/code/missing.php", 10) == -1, "missing file should return -1");
-    assert_true(function_id("/tmp/user/other.php", 10) == -1, "outside-root path should return -1");
-    assert_true(function_id("/tmp/user/codebase/main.php", 10) == -1, "prefix-only path should return -1");
-    assert_true(function_id(main_path, 0) == -1, "line 0 should return -1");
+    assert_true(function_id(main_path, 10, test_function_name) == 17, "wrong function id for main.php:10");
+    assert_true(function_id(main_path, 20, test_function_name) == 31, "wrong cached function id for main.php:20");
+    assert_true(function_id(main_path, 11, test_function_name) == -1, "missing line should return -1");
+    assert_true(function_id(ignored_path, 50, test_function_name) == -1, "ignored file should return -1");
+    assert_true(function_id(ignored_path, 51, test_function_name) == -1, "cached ignored file should return -1");
+    assert_true(function_id("/tmp/user/code/missing.php", 10, test_function_name) == -1, "missing file should return -1");
+    assert_true(function_id("/tmp/user/other.php", 10, test_function_name) == -1, "outside-root path should return -1");
+    assert_true(function_id("/tmp/user/codebase/main.php", 10, test_function_name) == -1, "prefix-only path should return -1");
+    assert_true(function_id(main_path, 0, test_function_name) == -1, "line 0 should return -1");
 }
 
 static void run_root_prefix_case(void) {
@@ -130,8 +131,8 @@ static void run_root_prefix_case(void) {
         xdebug_hash_index_add(line_map, 7, (void*) (uintptr_t) 91),
         "failed to add root-prefix function id"
     );
-    assert_true(function_id("/tmp/anywhere.php", 7) == 91, "root prefix should match descendant path");
-    assert_true(function_id("/tmpx/anywhere.php", 7) == -1, "root prefix should not match sibling prefix");
+    assert_true(function_id("/tmp/anywhere.php", 7, test_function_name) == 91, "root prefix should match descendant path");
+    assert_true(function_id("/tmpx/anywhere.php", 7, test_function_name) == -1, "root prefix should not match sibling prefix");
 }
 
 int main(void) {

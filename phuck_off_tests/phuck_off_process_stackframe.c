@@ -262,6 +262,12 @@ static xdebug_hash* line_map_for(const char* path) {
 static void run_process_stackframe_case(void) {
     char mmap_path[64];
     char* log_content;
+    zend_function top_level_function;
+    zend_execute_data top_level_zdata;
+    zend_op_array top_level_op_array;
+    zend_function top_level_main_function;
+    zend_execute_data top_level_main_zdata;
+    zend_op_array top_level_main_op_array;
     zend_function main_function;
     zend_execute_data main_zdata;
     zend_op_array main_op_array;
@@ -299,6 +305,16 @@ static void run_process_stackframe_case(void) {
     assert_contains(log_content, mmap_path, "phuck_off_request_init log should contain exact mmap path");
     free(log_content);
 
+    top_level_zdata = make_frame(&top_level_function, NULL, "/tmp/phuck-off-root/app/routes.php", -690725944, ZEND_USER_FUNCTION);
+    top_level_op_array = make_op_array("/tmp/phuck-off-root/app/routes.php", -690725944);
+    phuck_off_process_stackframe(&top_level_zdata, &top_level_op_array);
+    assert_true(top_level_op_array.reserved[3] == NULL, "top-level include frame should not cache anything");
+
+    top_level_main_zdata = make_frame(&top_level_main_function, "{main}", "/tmp/phuck-off-root/app/autoload.php", 478, ZEND_USER_FUNCTION);
+    top_level_main_op_array = make_op_array("/tmp/phuck-off-root/app/autoload.php", 478);
+    phuck_off_process_stackframe(&top_level_main_zdata, &top_level_main_op_array);
+    assert_true(top_level_main_op_array.reserved[3] == NULL, "top-level {main} frame should not cache anything");
+
     main_zdata = make_frame(&main_function, "main", "/tmp/phuck-off-root/app/main.php", 340433536, ZEND_USER_FUNCTION);
     main_op_array = make_op_array("/tmp/phuck-off-root/app/main.php", 10);
     phuck_off_process_stackframe(&main_zdata, &main_op_array);
@@ -333,6 +349,8 @@ static void run_process_stackframe_case(void) {
     assert_true(access(mmap_path, F_OK) != 0 && errno == ENOENT, "phuck_off_shutdown should remove mmap file");
 
     log_content = read_log_file();
+    assert_not_contains(log_content, "routes.php", "top-level include frame should not log anything");
+    assert_not_contains(log_content, "autoload.php", "top-level {main} frame should not log anything");
     assert_contains(log_content, "Frame calling user function main at /tmp/phuck-off-root/app/main.php:10", "stackframe trace log should use the canonical op_array line and function name");
     assert_not_contains(log_content, "340433536", "stackframe trace log should not use the function_state.function line_start");
     assert_contains(log_content, "Cache error!! function /tmp/phuck-off-root/app/main.php:10 is ID 2, but cached is 1", "sampled mismatch should log a cache error");

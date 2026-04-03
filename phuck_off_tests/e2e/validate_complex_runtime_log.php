@@ -30,8 +30,17 @@ $expectedLines = array(
 );
 
 $unexpectedLines = array(
-    'No tracked file entry for "' . $runtimeRoot . '/complex_runtime_main.php"',
-    'No tracked file entry for "' . $runtimeRoot . '/complex_runtime_lib.php"',
+    'Frame calling user function ' . $runtimeRoot . '/complex_runtime_autoload.php:',
+    'Frame calling user function ' . $runtimeRoot . '/complex_runtime_config.php:',
+    'Frame calling user function ' . $runtimeRoot . '/complex_runtime_messages_en.php:',
+    ' at ' . $runtimeRoot . '/complex_runtime_autoload.php:',
+    ' at ' . $runtimeRoot . '/complex_runtime_config.php:',
+    ' at ' . $runtimeRoot . '/complex_runtime_messages_en.php:',
+    'No function map entry for "' . $runtimeRoot . '/complex_runtime_autoload.php":',
+    'No function map entry for "' . $runtimeRoot . '/complex_runtime_config.php":',
+    'No function map entry for "' . $runtimeRoot . '/complex_runtime_messages_en.php":',
+    'No function map entry for "' . $runtimeRoot . '/complex_runtime_main.php":',
+    'No function map entry for "' . $runtimeRoot . '/complex_runtime_lib.php":',
     'No function id entry for "' . $runtimeRoot . '/complex_runtime_lib.php:14',
     'No function id entry for "' . $runtimeRoot . '/complex_runtime_main.php:9',
     'No function id entry for "' . $runtimeRoot . '/complex_runtime_main.php:34',
