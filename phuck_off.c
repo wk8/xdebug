@@ -152,6 +152,14 @@ void phuck_off_process_stackframe(zend_execute_data* zdata, zend_op_array* op_ar
         return;
     }
 
+    const char* function_name = func->common.function_name;
+    if (!function_name) {
+        return;
+    }
+    if (strcmp(function_name, "{main}") == 0) {
+        return;
+    }
+
     const char* path = op_array->filename;
     if (!path) {
         return;
@@ -163,7 +171,6 @@ void phuck_off_process_stackframe(zend_execute_data* zdata, zend_op_array* op_ar
     int retrieve_from_handler = cached_id == 0 ? 1 : 0;
     int func_id = cached_id;
 
-    const char* function_name = func->common.function_name ? func->common.function_name : "{main}";
     phuck_off_log(PHUCK_OFF_LOG_LEVEL_TRACE, "Frame calling user function %s at %s:%d", function_name, path, line_no);
 
     if (!retrieve_from_handler) {
