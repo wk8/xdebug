@@ -5,6 +5,10 @@
 #include "phuck_off_logger.h"
 #include "phuck_off_mmap.h"
 
+#ifndef PHUCK_OFF_ENABLED_ENV_VAR
+#define PHUCK_OFF_ENABLED_ENV_VAR "PHUCK_OFF_ENABLED"
+#endif
+
 // init/teardown for MINIT/MSHUTDOWN
 void phuck_off_init(void);
 void phuck_off_shutdown(void);

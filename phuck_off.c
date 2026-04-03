@@ -29,6 +29,12 @@ typedef struct phuck_off {
 
 static phuck_off handler = { 0, NULL, 0, 0, NULL };
 
+static int phuck_off_is_enabled(void) {
+    const char* enabled = getenv(PHUCK_OFF_ENABLED_ENV_VAR);
+
+    return enabled != NULL && strcmp(enabled, "1") == 0;
+}
+
 static int function_id(const char* path, const int line_no) {
     if (line_no == 0) {
         // file is being required
@@ -97,6 +103,13 @@ static void init_handler(void) {
 }
 
 void phuck_off_init(void) {
+    if (!phuck_off_is_enabled()) {
+        phuck_off_logger_shutdown();
+        phuck_off_mmap_shutdown();
+        shutdown_handler();
+        return;
+    }
+
     phuck_off_logger_init();
     phuck_off_sanity_check_init();
     init_handler();
@@ -111,6 +124,10 @@ void phuck_off_request_init(void) {
 }
 
 void phuck_off_post_request(void) {
+    if (!handler.initialized) {
+        return;
+    }
+
     phuck_off_mmap_post_request();
 }
 

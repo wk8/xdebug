@@ -19,6 +19,8 @@ static char* saved_sampling_env = NULL;
 static int sampling_env_was_set = 0;
 static char* saved_no_cleanup_env = NULL;
 static int no_cleanup_env_was_set = 0;
+static char* saved_enabled_env = NULL;
+static int enabled_env_was_set = 0;
 static char backup_template[] = "/tmp/phuck-off.process-stackframe.backup.XXXXXX";
 static int backup_exists = 0;
 
@@ -56,6 +58,7 @@ static void preserve_environment(void) {
     const char* log_level = getenv(PHUCK_OFF_LOG_LEVEL_ENV_VAR);
     const char* sampling = getenv(PHUCK_OFF_SANITY_CHECK_SAMPLING_ENV_VAR);
     const char* no_cleanup = getenv(PHUCK_OFF_NO_CLEANUP_ENV_VAR);
+    const char* enabled = getenv(PHUCK_OFF_ENABLED_ENV_VAR);
 
     if (log_level) {
         saved_log_level_env = dup_string(log_level);
@@ -80,6 +83,14 @@ static void preserve_environment(void) {
         saved_no_cleanup_env = NULL;
         no_cleanup_env_was_set = 0;
     }
+
+    if (enabled) {
+        saved_enabled_env = dup_string(enabled);
+        enabled_env_was_set = 1;
+    } else {
+        saved_enabled_env = NULL;
+        enabled_env_was_set = 0;
+    }
 }
 
 static void restore_environment(void) {
@@ -101,6 +112,12 @@ static void restore_environment(void) {
         unsetenv(PHUCK_OFF_NO_CLEANUP_ENV_VAR);
     }
 
+    if (enabled_env_was_set) {
+        setenv(PHUCK_OFF_ENABLED_ENV_VAR, saved_enabled_env, 1);
+    } else {
+        unsetenv(PHUCK_OFF_ENABLED_ENV_VAR);
+    }
+
     free(saved_log_level_env);
     saved_log_level_env = NULL;
     log_level_env_was_set = 0;
@@ -112,6 +129,10 @@ static void restore_environment(void) {
     free(saved_no_cleanup_env);
     saved_no_cleanup_env = NULL;
     no_cleanup_env_was_set = 0;
+
+    free(saved_enabled_env);
+    saved_enabled_env = NULL;
+    enabled_env_was_set = 0;
 }
 
 static void backup_existing_log(void) {
@@ -237,6 +258,7 @@ static void run_process_stackframe_case(void) {
     setenv(PHUCK_OFF_LOG_LEVEL_ENV_VAR, "info", 1);
     setenv(PHUCK_OFF_SANITY_CHECK_SAMPLING_ENV_VAR, "100", 1);
     unsetenv(PHUCK_OFF_NO_CLEANUP_ENV_VAR);
+    setenv(PHUCK_OFF_ENABLED_ENV_VAR, "1", 1);
     XG(phuck_off_tracker_offset) = 3;
 
     expected_mmap_path(mmap_path, sizeof(mmap_path));
@@ -311,6 +333,7 @@ static void run_request_init_fork_case(void) {
     setenv(PHUCK_OFF_LOG_LEVEL_ENV_VAR, "info", 1);
     unsetenv(PHUCK_OFF_SANITY_CHECK_SAMPLING_ENV_VAR);
     setenv(PHUCK_OFF_NO_CLEANUP_ENV_VAR, "1", 1);
+    setenv(PHUCK_OFF_ENABLED_ENV_VAR, "1", 1);
     phuck_off_init();
     assert_true(phuck_off_mmap_bytes == NULL, "fork case should start without mmap after phuck_off_init");
 
@@ -364,12 +387,54 @@ static void run_request_init_fork_case(void) {
     assert_true(unlink(child_mmap_path) == 0, "failed to remove child mmap file after verification");
 }
 
+static void run_disabled_case(void) {
+    char mmap_path[64];
+    zend_function function;
+    zend_execute_data zdata;
+
+    setenv(PHUCK_OFF_LOG_LEVEL_ENV_VAR, "trace", 1);
+    setenv(PHUCK_OFF_SANITY_CHECK_SAMPLING_ENV_VAR, "100", 1);
+    unsetenv(PHUCK_OFF_NO_CLEANUP_ENV_VAR);
+    unsetenv(PHUCK_OFF_ENABLED_ENV_VAR);
+    XG(phuck_off_tracker_offset) = 3;
+
+    expected_mmap_path(mmap_path, sizeof(mmap_path));
+    if (unlink(mmap_path) != 0 && errno != ENOENT) {
+        assert_true(0, "failed to remove stale disabled-case mmap path");
+    }
+    if (unlink(PHUCK_OFF_LOG_FILE) != 0 && errno != ENOENT) {
+        assert_true(0, "failed to remove stale disabled-case log");
+    }
+
+    zdata = make_frame(&function, "/tmp/phuck-off-root/app/main.php", 10, ZEND_USER_FUNCTION);
+    phuck_off_init();
+    assert_true(handler.initialized == 0, "phuck_off_init should skip handler init when disabled");
+    assert_true(phuck_off_mmap_bytes == NULL, "disabled phuck_off_init should not initialize mmap");
+    assert_true(access(PHUCK_OFF_LOG_FILE, F_OK) != 0, "disabled phuck_off_init should not create a log file");
+
+    phuck_off_request_init();
+    assert_true(phuck_off_mmap_bytes == NULL, "disabled phuck_off_request_init should be a no-op");
+    assert_true(access(mmap_path, F_OK) != 0 && errno == ENOENT, "disabled phuck_off_request_init should not create mmap file");
+
+    phuck_off_post_request();
+    assert_true(access(PHUCK_OFF_LOG_FILE, F_OK) != 0, "disabled phuck_off_post_request should not create a log file");
+
+    phuck_off_process_stackframe(&zdata);
+    assert_true(function.op_array.reserved[3] == NULL, "disabled phuck_off_process_stackframe should not touch cache");
+    assert_true(access(PHUCK_OFF_LOG_FILE, F_OK) != 0, "disabled phuck_off_process_stackframe should not create a log file");
+    assert_true(access(mmap_path, F_OK) != 0, "disabled phuck_off_process_stackframe should not create mmap file");
+
+    phuck_off_shutdown();
+    assert_true(access(PHUCK_OFF_LOG_FILE, F_OK) != 0, "disabled phuck_off_shutdown should not create a log file");
+}
+
 int main(void) {
     preserve_environment();
     backup_existing_log();
 
     run_process_stackframe_case();
     run_request_init_fork_case();
+    run_disabled_case();
 
     restore_existing_log();
     restore_environment();
