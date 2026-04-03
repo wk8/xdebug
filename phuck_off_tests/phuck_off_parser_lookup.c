@@ -96,6 +96,7 @@ static const fixture_case fixture_cases[] = {
 };
 
 static int failures = 0;
+static const char* lookup_function_name = "lookup_test";
 static char backup_template[] = "/tmp/phuck-off.parser-lookup.backup.XXXXXX";
 static int backup_exists = 0;
 static char* saved_env = NULL;
@@ -253,7 +254,7 @@ static int init_handler_from_file(const char* path) {
 }
 
 static void assert_expected_function_id(const char* path, int line_no, int expected_id) {
-    int id = function_id(path, line_no);
+    int id = function_id(path, line_no, lookup_function_name);
     if (id != expected_id) {
         fprintf(stderr, "expected function id %d for %s:%d, got %d\n", expected_id, path, line_no, id);
         failures = 1;
@@ -261,7 +262,7 @@ static void assert_expected_function_id(const char* path, int line_no, int expec
 }
 
 static void assert_missing_function_id(const char* path, int line_no) {
-    int id = function_id(path, line_no);
+    int id = function_id(path, line_no, lookup_function_name);
     if (id != -1) {
         fprintf(stderr, "expected missing function id for %s:%d, got %d\n", path, line_no, id);
         failures = 1;
@@ -315,9 +316,9 @@ static void run_fixture_case(const fixture_case* fixture) {
     snprintf(message, sizeof(message), "%s should produce an error log file", fixture->name);
     assert_true(log_content != NULL, message);
 
-    snprintf(expected_missing_line, sizeof(expected_missing_line), "No function id entry for \"%s\":999999", first_positive->path);
+    snprintf(expected_missing_line, sizeof(expected_missing_line), "No function id entry for \"%s\":999999:%s", first_positive->path, lookup_function_name);
     snprintf(expected_line_zero, sizeof(expected_line_zero), "No function id entry for \"%s\":0", first_positive->path);
-    snprintf(expected_missing_file, sizeof(expected_missing_file), "No function map entry for path \"%s\":1", fixture->missing_in_root_path);
+    snprintf(expected_missing_file, sizeof(expected_missing_file), "No function map entry for \"%s\":1:%s", fixture->missing_in_root_path, lookup_function_name);
 
     snprintf(message, sizeof(message), "missing-line error log missing for %s", fixture->name);
     assert_contains(log_content, expected_missing_line, message);

@@ -35,7 +35,7 @@ static int phuck_off_is_enabled(void) {
     return enabled != NULL && strcmp(enabled, "1") == 0;
 }
 
-static int function_id(const char* path, const int line_no) {
+static int function_id(const char* path, const int line_no, const char* function_name) {
     if (line_no == 0) {
         // file is being required
         return -1;
@@ -53,7 +53,7 @@ static int function_id(const char* path, const int line_no) {
     void* file_entry;
     if (!xdebug_hash_find(handler.files, (char*) path, (unsigned int) path_len, &file_entry)) {
         // we found a file that the dumper missed
-        phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "No function map entry for path \"%s\":%d", path, line_no);
+        phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "No function map entry for \"%s\":%d:%s", path, line_no, function_name);
         return -1;
     }
 
@@ -66,7 +66,7 @@ static int function_id(const char* path, const int line_no) {
     void* line_entry = NULL;
     if (!xdebug_hash_index_find(line_map, (unsigned long) line_no, &line_entry)) {
         // we found a function that the dumper missed
-        phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "No function id entry for \"%s\":%d", path, line_no);
+        phuck_off_log(PHUCK_OFF_LOG_LEVEL_ERROR, "No function id entry for \"%s\":%d:%s", path, line_no, function_name);
         return -1;
     }
 
@@ -153,10 +153,8 @@ void phuck_off_process_stackframe(zend_execute_data* zdata, zend_op_array* op_ar
     }
 
     const char* function_name = func->common.function_name;
-    if (!function_name) {
-        return;
-    }
-    if (strcmp(function_name, "{main}") == 0) {
+    if (!function_name || strcmp(function_name, "{main}") == 0) {
+        // include frame at top-level
         return;
     }
 
@@ -178,7 +176,7 @@ void phuck_off_process_stackframe(zend_execute_data* zdata, zend_op_array* op_ar
     }
 
     if (retrieve_from_handler) {
-        func_id = function_id(path, line_no);
+        func_id = function_id(path, line_no, function_name);
 
         if (cached_id == 0) {
             op_array->reserved[phuck_off_offset] = (void*) (intptr_t) func_id;
