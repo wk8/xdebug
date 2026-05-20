@@ -268,6 +268,12 @@ static void run_process_stackframe_case(void) {
     zend_function top_level_main_function;
     zend_execute_data top_level_main_zdata;
     zend_op_array top_level_main_op_array;
+    zend_function eval_function;
+    zend_execute_data eval_zdata;
+    zend_op_array eval_op_array;
+    zend_function runtime_created_function;
+    zend_execute_data runtime_created_zdata;
+    zend_op_array runtime_created_op_array;
     zend_function main_function;
     zend_execute_data main_zdata;
     zend_op_array main_op_array;
@@ -315,6 +321,16 @@ static void run_process_stackframe_case(void) {
     phuck_off_process_stackframe(&top_level_main_zdata, &top_level_main_op_array);
     assert_true(top_level_main_op_array.reserved[3] == NULL, "top-level {main} frame should not cache anything");
 
+    eval_zdata = make_frame(&eval_function, "create_slug", "/tmp/phuck-off-root/app/Loader.php(830) : eval()'d code", 145, ZEND_USER_FUNCTION);
+    eval_op_array = make_op_array("/tmp/phuck-off-root/app/Loader.php(830) : eval()'d code", 145);
+    phuck_off_process_stackframe(&eval_zdata, &eval_op_array);
+    assert_true((intptr_t) eval_op_array.reserved[3] == -2, "eval-generated function should cache skip sentinel");
+
+    runtime_created_zdata = make_frame(&runtime_created_function, "__lambda_func", "/tmp/phuck-off-root/app/Loader.php(830) : runtime-created function:1", 1, ZEND_USER_FUNCTION);
+    runtime_created_op_array = make_op_array("/tmp/phuck-off-root/app/Loader.php(830) : runtime-created function:1", 1);
+    phuck_off_process_stackframe(&runtime_created_zdata, &runtime_created_op_array);
+    assert_true((intptr_t) runtime_created_op_array.reserved[3] == -2, "runtime-created function should cache skip sentinel");
+
     main_zdata = make_frame(&main_function, "main", "/tmp/phuck-off-root/app/main.php", 340433536, ZEND_USER_FUNCTION);
     main_op_array = make_op_array("/tmp/phuck-off-root/app/main.php", 10);
     phuck_off_process_stackframe(&main_zdata, &main_op_array);
@@ -351,6 +367,8 @@ static void run_process_stackframe_case(void) {
     log_content = read_log_file();
     assert_not_contains(log_content, "routes.php", "top-level include frame should not log anything");
     assert_not_contains(log_content, "autoload.php", "top-level {main} frame should not log anything");
+    assert_not_contains(log_content, "eval()'d code", "eval-generated function should not log anything");
+    assert_not_contains(log_content, "runtime-created function", "runtime-created function should not log anything");
     assert_contains(log_content, "Frame calling user function main at /tmp/phuck-off-root/app/main.php:10", "stackframe trace log should use the canonical op_array line and function name");
     assert_not_contains(log_content, "340433536", "stackframe trace log should not use the function_state.function line_start");
     assert_contains(log_content, "Cache error!! function /tmp/phuck-off-root/app/main.php:10 is ID 2, but cached is 1", "sampled mismatch should log a cache error");

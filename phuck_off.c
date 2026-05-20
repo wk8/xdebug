@@ -28,11 +28,16 @@ typedef struct phuck_off {
 } phuck_off;
 
 static phuck_off handler = { 0, NULL, 0, 0, NULL };
+static const int phuck_off_skipped_function_id = -2;
 
 static int phuck_off_is_enabled(void) {
     const char* enabled = getenv(PHUCK_OFF_ENABLED_ENV_VAR);
 
     return enabled != NULL && strcmp(enabled, "1") == 0;
+}
+
+static int phuck_off_is_generated_code_path(const char* path) {
+    return strstr(path, " : eval()'d code") != NULL || strstr(path, " : runtime-created function") != NULL;
 }
 
 static int function_id(const char* path, const int line_no, const char* function_name) {
@@ -157,7 +162,6 @@ void phuck_off_process_stackframe(zend_execute_data* zdata, zend_op_array* op_ar
         // include frame at top-level
         return;
     }
-
     const char* path = op_array->filename;
     if (!path) {
         return;
@@ -166,6 +170,13 @@ void phuck_off_process_stackframe(zend_execute_data* zdata, zend_op_array* op_ar
     const int phuck_off_offset = XG(phuck_off_tracker_offset);
     const int line_no = op_array->line_start;
     const int cached_id = (int) (intptr_t) op_array->reserved[phuck_off_offset];
+    if (cached_id == phuck_off_skipped_function_id) {
+        return;
+    }
+    if (op_array->type == ZEND_EVAL_CODE || func->op_array.type == ZEND_EVAL_CODE || phuck_off_is_generated_code_path(path)) {
+        op_array->reserved[phuck_off_offset] = (void*) (intptr_t) phuck_off_skipped_function_id;
+        return;
+    }
     int retrieve_from_handler = cached_id == 0 ? 1 : 0;
     int func_id = cached_id;
 

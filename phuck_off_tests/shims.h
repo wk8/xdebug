@@ -53,6 +53,7 @@ static zend_xdebug_globals phuck_off_test_globals = { 0 };
 
 #define XG(v) (phuck_off_test_globals.v)
 #define ZEND_USER_FUNCTION 2
+#define ZEND_EVAL_CODE 4
 
 #endif
 

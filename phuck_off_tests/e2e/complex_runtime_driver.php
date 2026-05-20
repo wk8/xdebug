@@ -8,6 +8,10 @@ require __DIR__ . '/../fixtures/complex_runtime_main.php';
 $worker = new LibWorker();
 $trait = $worker->trait_step(4);
 $beta = helper_beta(3);
+$slugger = create_function('$value', 'return trim(strtolower($value));');
+$slug = $slugger('  SlUg  ');
+eval('function complex_runtime_eval_helper($value) { return strtoupper($value); }');
+$upper = complex_runtime_eval_helper('ok');
 $result = main_entry();
 
 if ($trait !== 6) {
@@ -17,6 +21,16 @@ if ($trait !== 6) {
 
 if ($beta !== 10) {
     fwrite(STDERR, "unexpected helper_beta result\n");
+    exit(1);
+}
+
+if ($slug !== 'slug') {
+    fwrite(STDERR, "unexpected create_function result\n");
+    exit(1);
+}
+
+if ($upper !== 'OK') {
+    fwrite(STDERR, "unexpected eval function result\n");
     exit(1);
 }
 

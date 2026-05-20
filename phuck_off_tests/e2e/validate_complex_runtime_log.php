@@ -30,6 +30,8 @@ $expectedLines = array(
 );
 
 $unexpectedLines = array(
+    "eval()'d code",
+    "runtime-created function",
     'Frame calling user function ' . $runtimeRoot . '/complex_runtime_autoload.php:',
     'Frame calling user function ' . $runtimeRoot . '/complex_runtime_config.php:',
     'Frame calling user function ' . $runtimeRoot . '/complex_runtime_messages_en.php:',
