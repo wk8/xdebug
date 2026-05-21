@@ -1,3 +1,4 @@
+/tmp/phuck-off-root/app/main.php:0
 /tmp/phuck-off-root/app/main.php:10
 /tmp/phuck-off-root/app/other.php:20
 ### GENERATED FOR ###

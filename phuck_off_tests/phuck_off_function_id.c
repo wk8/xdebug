@@ -94,6 +94,10 @@ static void run_user_root_case(void) {
     }
 
     assert_true(
+        xdebug_hash_index_add(line_map, 0, (void*) (uintptr_t) 13),
+        "failed to add file include id"
+    );
+    assert_true(
         xdebug_hash_index_add(line_map, 10, (void*) (uintptr_t) 17),
         "failed to add first function id"
     );
@@ -106,6 +110,7 @@ static void run_user_root_case(void) {
         "failed to add ignored file entry"
     );
 
+    assert_true(function_id(main_path, 0, "require") == 13, "wrong file id for main.php:0");
     assert_true(function_id(main_path, 10, test_function_name) == 17, "wrong function id for main.php:10");
     assert_true(function_id(main_path, 20, test_function_name) == 31, "wrong cached function id for main.php:20");
     assert_true(function_id(main_path, 11, test_function_name) == -1, "missing line should return -1");
@@ -114,7 +119,7 @@ static void run_user_root_case(void) {
     assert_true(function_id("/tmp/user/code/missing.php", 10, test_function_name) == -1, "missing file should return -1");
     assert_true(function_id("/tmp/user/other.php", 10, test_function_name) == -1, "outside-root path should return -1");
     assert_true(function_id("/tmp/user/codebase/main.php", 10, test_function_name) == -1, "prefix-only path should return -1");
-    assert_true(function_id(main_path, 0, test_function_name) == -1, "line 0 should return -1");
+    assert_true(function_id("/tmp/user/code/missing.php", 0, "require") == -1, "missing file include should return -1");
 }
 
 static void run_root_prefix_case(void) {

@@ -270,6 +270,7 @@ static void run_process_stackframe_case(void) {
     zend_op_array top_level_main_op_array;
     zend_function main_function;
     zend_execute_data main_zdata;
+    zend_op_array include_op_array;
     zend_op_array main_op_array;
     zend_function missing_function;
     zend_execute_data missing_zdata;
@@ -298,7 +299,7 @@ static void run_process_stackframe_case(void) {
 
     assert_true(phuck_off_mmap_bytes != NULL, "phuck_off_request_init should initialize mmap");
     assert_true(access(mmap_path, F_OK) == 0, "phuck_off_request_init should create mmap file");
-    assert_true(file_size(mmap_path) == 1, "2 parsed functions should allocate a 1-byte mmap file");
+    assert_true(file_size(mmap_path) == 1, "3 parsed entries should allocate a 1-byte mmap file");
 
     log_content = read_log_file();
     assert_contains(log_content, "Initialized phuck-off mmap path=\"", "phuck_off_request_init should log mmap path");
@@ -315,22 +316,27 @@ static void run_process_stackframe_case(void) {
     phuck_off_process_stackframe(&top_level_main_zdata, &top_level_main_op_array);
     assert_true(top_level_main_op_array.reserved[3] == NULL, "top-level {main} frame should not cache anything");
 
+    include_op_array = make_op_array("/tmp/phuck-off-root/app/main.php", 0);
+    phuck_off_process_include(&include_op_array, XFUNC_REQUIRE);
+    assert_true((intptr_t) include_op_array.reserved[3] == 1, "main.php:0 should cache include id 1");
+    assert_true(phuck_off_mmap_bytes[0] == 0x01, "include id 1 should set mmap bit 0");
+
     main_zdata = make_frame(&main_function, "main", "/tmp/phuck-off-root/app/main.php", 340433536, ZEND_USER_FUNCTION);
     main_op_array = make_op_array("/tmp/phuck-off-root/app/main.php", 10);
     phuck_off_process_stackframe(&main_zdata, &main_op_array);
-    assert_true((intptr_t) main_op_array.reserved[3] == 1, "main.php:10 should cache function id 1 on the canonical op_array");
+    assert_true((intptr_t) main_op_array.reserved[3] == 2, "main.php:10 should cache function id 2 on the canonical op_array");
     assert_true(main_function.op_array.reserved[3] == NULL, "function_state.function op_array should not be used for caching");
-    assert_true(phuck_off_mmap_bytes[0] == 0x01, "function id 1 should set mmap bit 0");
+    assert_true(phuck_off_mmap_bytes[0] == 0x03, "function id 2 should set mmap bit 1");
 
     main_line_map = line_map_for("/tmp/phuck-off-root/app/main.php");
     assert_true(
-        xdebug_hash_index_update(main_line_map, 10, (void*) (uintptr_t) 2),
+        xdebug_hash_index_update(main_line_map, 10, (void*) (uintptr_t) 3),
         "failed to update stackframe fixture line map"
     );
 
     phuck_off_process_stackframe(&main_zdata, &main_op_array);
-    assert_true((intptr_t) main_op_array.reserved[3] == 2, "sampled cache mismatch should update cached function id");
-    assert_true((phuck_off_mmap_bytes[0] & 0x03u) == 0x03u, "sampled cache mismatch should set mmap bit 1");
+    assert_true((intptr_t) main_op_array.reserved[3] == 3, "sampled cache mismatch should update cached function id");
+    assert_true((phuck_off_mmap_bytes[0] & 0x07u) == 0x07u, "sampled cache mismatch should set mmap bit 2");
 
     missing_zdata = make_frame(&missing_function, "missing", "/tmp/phuck-off-root/app/missing.php", 77, ZEND_USER_FUNCTION);
     missing_op_array = make_op_array("/tmp/phuck-off-root/app/missing.php", 77);
@@ -351,9 +357,11 @@ static void run_process_stackframe_case(void) {
     log_content = read_log_file();
     assert_not_contains(log_content, "routes.php", "top-level include frame should not log anything");
     assert_not_contains(log_content, "autoload.php", "top-level {main} frame should not log anything");
+    assert_contains(log_content, "Frame including user file via require at /tmp/phuck-off-root/app/main.php:0", "include trace log should include path and line 0");
+    assert_contains(log_content, "Caching: included file /tmp/phuck-off-root/app/main.php:0 is ID 1", "include trace log should cache line-zero id");
     assert_contains(log_content, "Frame calling user function main at /tmp/phuck-off-root/app/main.php:10", "stackframe trace log should use the canonical op_array line and function name");
     assert_not_contains(log_content, "340433536", "stackframe trace log should not use the function_state.function line_start");
-    assert_contains(log_content, "Cache error!! function /tmp/phuck-off-root/app/main.php:10 is ID 2, but cached is 1", "sampled mismatch should log a cache error");
+    assert_contains(log_content, "Cache error!! function /tmp/phuck-off-root/app/main.php:10 is ID 3, but cached is 2", "sampled mismatch should log a cache error");
     free(log_content);
 
 }
@@ -435,6 +443,7 @@ static void run_disabled_case(void) {
     zend_function function;
     zend_execute_data zdata;
     zend_op_array op_array;
+    zend_op_array include_op_array;
 
     setenv(PHUCK_OFF_LOG_LEVEL_ENV_VAR, "trace", 1);
     setenv(PHUCK_OFF_SANITY_CHECK_SAMPLING_ENV_VAR, "100", 1);
@@ -468,6 +477,12 @@ static void run_disabled_case(void) {
     assert_true(function.op_array.reserved[3] == NULL, "disabled phuck_off_process_stackframe should not touch cache");
     assert_true(access(PHUCK_OFF_LOG_FILE, F_OK) != 0, "disabled phuck_off_process_stackframe should not create a log file");
     assert_true(access(mmap_path, F_OK) != 0, "disabled phuck_off_process_stackframe should not create mmap file");
+
+    include_op_array = make_op_array("/tmp/phuck-off-root/app/main.php", 0);
+    phuck_off_process_include(&include_op_array, XFUNC_REQUIRE);
+    assert_true(include_op_array.reserved[3] == NULL, "disabled phuck_off_process_include should not touch cache");
+    assert_true(access(PHUCK_OFF_LOG_FILE, F_OK) != 0, "disabled phuck_off_process_include should not create a log file");
+    assert_true(access(mmap_path, F_OK) != 0, "disabled phuck_off_process_include should not create mmap file");
 
     phuck_off_shutdown();
     assert_true(access(PHUCK_OFF_LOG_FILE, F_OK) != 0, "disabled phuck_off_shutdown should not create a log file");

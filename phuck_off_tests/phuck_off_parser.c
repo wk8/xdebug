@@ -18,6 +18,7 @@ static void assert_true(int condition, const char* message) {
 static void write_fixture_file(FILE* fp) {
     int i;
 
+    fprintf(fp, "/tmp/user/code/main.php:0\n");
     for (i = 0; i < 17; i++) {
         fprintf(fp, "/tmp/user/code/main.php:%d\n", 10 + i);
     }
@@ -65,7 +66,7 @@ int main(void) {
 
     if (files && user_code_root) {
         assert_true(strcmp(user_code_root, "/tmp/user/code") == 0, "unexpected user_code_root");
-        assert_true(function_count == 18, "unexpected parsed function count");
+        assert_true(function_count == 19, "unexpected parsed function count");
         assert_true(files->size == 2049, "unexpected outer hash size");
         assert_true(files->slots == 1025, "outer hash did not resize as expected");
 
@@ -76,15 +77,19 @@ int main(void) {
         main_lines = (xdebug_hash*) value;
         assert_true(main_lines != NULL, "main.php should not be ignored");
         if (main_lines) {
-            assert_true(main_lines->size == 17, "unexpected main.php inner hash size");
+            assert_true(main_lines->size == 18, "unexpected main.php inner hash size");
             assert_true(main_lines->slots == 9, "main.php inner hash did not resize as expected");
 
             assert_true(
-                xdebug_hash_index_find(main_lines, 10, &value) && (unsigned long) (uintptr_t) value == 1,
+                xdebug_hash_index_find(main_lines, 0, &value) && (unsigned long) (uintptr_t) value == 1,
+                "main.php:0 has the wrong input line number"
+            );
+            assert_true(
+                xdebug_hash_index_find(main_lines, 10, &value) && (unsigned long) (uintptr_t) value == 2,
                 "main.php:10 has the wrong input line number"
             );
             assert_true(
-                xdebug_hash_index_find(main_lines, 26, &value) && (unsigned long) (uintptr_t) value == 17,
+                xdebug_hash_index_find(main_lines, 26, &value) && (unsigned long) (uintptr_t) value == 18,
                 "main.php:26 has the wrong input line number"
             );
         }

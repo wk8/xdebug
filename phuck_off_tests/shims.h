@@ -53,6 +53,13 @@ static zend_xdebug_globals phuck_off_test_globals = { 0 };
 
 #define XG(v) (phuck_off_test_globals.v)
 #define ZEND_USER_FUNCTION 2
+#define XFUNC_INCLUDES 0x10
+#define XFUNC_EVAL 0x10
+#define XFUNC_INCLUDE 0x11
+#define XFUNC_INCLUDE_ONCE 0x12
+#define XFUNC_REQUIRE 0x13
+#define XFUNC_REQUIRE_ONCE 0x14
+#define XDEBUG_IS_FUNCTION(f) (f == 0x01 || f == 0x02 || f == 0x03)
 
 #endif
 

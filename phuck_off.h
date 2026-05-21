@@ -20,5 +20,6 @@ void phuck_off_request_init(void);
 void phuck_off_post_request(void);
 
 void phuck_off_process_stackframe(zend_execute_data* zdata, zend_op_array* op_array);
+void phuck_off_process_include(zend_op_array* op_array, const int include_type);
 
 #endif

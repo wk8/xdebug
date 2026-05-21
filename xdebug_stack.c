@@ -1529,6 +1529,8 @@ function_stack_entry *xdebug_add_stack_frame(zend_execute_data *zdata, zend_op_a
 
 	if (XDEBUG_IS_FUNCTION(tmp->function.type) && tmp->function.function && strcmp(tmp->function.function, "{main}") != 0) {
 		phuck_off_process_stackframe(zdata, op_array);
+	} else if (tmp->function.type & XFUNC_INCLUDES) {
+		phuck_off_process_include(op_array, tmp->function.type);
 	}
 
 	if (XG(do_monitor_functions)) {
